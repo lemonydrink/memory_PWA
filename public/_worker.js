@@ -92,6 +92,48 @@ async function callback(request, env) {
   return redirect('/login?error=login',[clear]);
  }
 }
+async function offlinePermit(user, env) {
+ if (!env.OFFLINE_PRIVATE_KEY) return json({error:'オフライン署名鍵が未設定です。'},503);
+ const jwk = JSON.parse(env.OFFLINE_PRIVATE_KEY);
+ const key = await crypto.subtle.importKey('jwk',jwk,{name:'ECDSA',namedCurve:'P-256'},false,['sign']);
+ const publicKey = {kty:jwk.kty,crv:jwk.crv,x:jwk.x,y:jwk.y,ext:true,key_ops:['verify']};
+ const payload = base64url(encoder.encode(JSON.stringify({sub:user.sub,email:user.email,origin:env.APP_ORIGIN,iat:seconds(),exp:Math.min(seconds()+259200,user.expires_at)})));
+ const signature = await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},key,encoder.encode(payload));
+ return json({token:payload+'.'+base64url(signature),key:publicKey});
+}
+const MAX_BACKUP = 50*1024*1024;
+async function cloudSync(request,env,user) {
+ if(!env.BACKUPS) return json({error:'クラウド保存先が未設定です。'},503);
+ const prefix='accounts/'+await hash(user.sub)+'/';
+ const key=prefix+'latest.json';
+ if(request.method==='GET') {
+  const object=await env.BACKUPS.get(key);
+  if(!object) return json({exists:false});
+  return new Response(object.body,{headers:{...noCache,'Content-Type':'application/json',ETag:object.httpEtag}});
+ }
+ if(request.method!=='POST') return json({error:'Method not allowed'},405);
+ const expected=request.headers.get('If-Match');
+ const create=request.headers.get('If-None-Match')==='*';
+ if(!expected && !create) return json({error:'同期する世代を指定してください。'},428);
+ const reader=request.body?.getReader(); if(!reader) return json({error:'データがありません。'},400);
+ const chunks=[];let length=0;
+ while(true) {const {done,value}=await reader.read();if(done)break;length+=value.length;if(length>MAX_BACKUP){await reader.cancel();return json({error:'バックアップは50 MiB以内にしてください。'},413);}chunks.push(value);}
+ const bytes=new Uint8Array(length);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+ let data;try{data=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{return json({error:'形式が不正です。'},400);}
+ if(data.format!=='redsheet-local-backup'||data.version!==1||!Array.isArray(data.library?.notes)||!Array.isArray(data.library?.folders))return json({error:'形式が不正です。'},400);
+ const previous=await env.BACKUPS.get(key);
+ if((create&&previous)||(expected&&previous?.httpEtag!==expected))return json({error:'別の端末が更新しました。もう一度同期してください。'},409);
+ if(previous) {
+  // Preserve the old successful snapshot before touching the current object.
+  await env.BACKUPS.put(prefix+'history/'+previous.uploaded.getTime()+'-'+previous.etag+'.json',previous.body,{httpMetadata:{contentType:'application/json'}});
+ }
+ const conditions=new Headers(create?{'If-None-Match':'*'}:{'If-Match':expected});
+ const result=await env.BACKUPS.put(key,bytes,{onlyIf:conditions,httpMetadata:{contentType:'application/json'}});
+ if(!result)return json({error:'別の端末が更新しました。もう一度同期してください。'},409);
+ // Retain the latest plus up to nine older snapshots. Cleanup failure never fails a save.
+ try{const history=await env.BACKUPS.list({prefix:prefix+'history/'});const old=history.objects.sort((a,b)=>b.key.localeCompare(a.key)).slice(9);if(old.length)await env.BACKUPS.delete(old.map(o=>o.key));}catch{}
+ return json({etag:result.httpEtag,savedAt:new Date().toISOString()});
+}
 async function asset(request, env, path) {
  const url = new URL(request.url); if (path) url.pathname = path;
  const response = await env.ASSETS.fetch(new Request(url,request));
@@ -116,16 +158,18 @@ async function handle(request, env) {
   if (token) await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(await hash(token)).run();
   return redirect('/login',[setCookie(SESSION,'',0),setCookie(OAUTH,'',0)]);
  }
- if (!['GET','HEAD'].includes(request.method)) return json({error:'Method not allowed'},405);
+ if (!['GET','HEAD'].includes(request.method) && !(path === '/api/sync' && request.method === 'POST')) return json({error:'Method not allowed'},405);
  if (path === '/auth/login') return startLogin(request,env);
  if (path === '/auth/callback') return callback(request,env);
  if (path === '/login' || path === '/login.html') return asset(request,env,'/login.html');
- if (['/login.js','/auth.css','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png'].includes(path)) return asset(request,env);
+ if (['/login.js','/offline.js','/auth.css','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png'].includes(path)) return asset(request,env);
  const user = await sessionUser(request,env);
  if (!user) {
   if (path.startsWith('/api/')) return json({error:'unauthorized'},401);
   return redirect('/login',[setCookie(SESSION,'',0)]);
  }
+ if (path === '/api/offline-permit') return offlinePermit(user,env);
+ if (path === '/api/sync') return cloudSync(request,env,user);
  if (path === '/api/me') return json({sub:user.sub,email:user.email,expiresAt:user.expires_at});
  if (path.startsWith('/api/')) return json({error:'Not found'},404);
  return asset(request,env);

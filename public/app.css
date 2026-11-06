@@ -103,3 +103,6 @@ article h2{font-size:15px;margin-bottom:5px}
 .note-table th,.note-table td{border:1px solid #dbcdd0;padding:10px 12px;min-width:100px;vertical-align:top;overflow-wrap:anywhere}
 .note-table th{font-weight:750}
 .note-table .note-image{max-width:240px}
+.phone[data-mode="upload"] :is(.reading,.sheet,.grip){display:none!important}
+#uploadView h1{font-size:23px;margin:22px 0}#uploadView h2{font-size:18px}#uploadView hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+#uploadView .library-editor{display:grid;gap:12px}

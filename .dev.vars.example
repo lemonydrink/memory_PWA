@@ -3,3 +3,6 @@ GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
 APP_ORIGIN=https://your-app.pages.dev
 SESSION_DAYS=90
+
+# Generate with python3 tools/generate_offline_key.py; store JSON as a Cloudflare Secret.
+# OFFLINE_PRIVATE_KEY={...}

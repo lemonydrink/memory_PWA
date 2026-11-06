@@ -27,6 +27,18 @@ env.DB = {prepare(sql) {return {bind(...args) {return {
   return {success:true};
  }
 };}};}};
+const objects=new Map();let objectVersion=0;
+env.BACKUPS={
+ async get(key){const item=objects.get(key);return item?{...item,body:new Blob([item.bytes]).stream()}:null;},
+ async put(key,body,options={}){
+  const previous=objects.get(key),h=options.onlyIf;
+  if(h&&((h.get('If-None-Match')==='*'&&previous)||(h.get('If-Match')&&h.get('If-Match')!==previous?.httpEtag)))return null;
+  const bytes=body instanceof ReadableStream?new Uint8Array(await new OriginalResponse(body).arrayBuffer()):typeof body==='string'?new TextEncoder().encode(body):body;
+  const etag='version-'+(++objectVersion),item={key,bytes,etag,httpEtag:'"'+etag+'"',uploaded:new Date()};objects.set(key,item);return item;
+ },
+ async list({prefix}){return{objects:[...objects.values()].filter(o=>o.key.startsWith(prefix))};},
+ async delete(keys){for(const key of Array.isArray(keys)?keys:[keys])objects.delete(key);}
+};
 function request(path, headers = {}, method='GET') {return {url:env.APP_ORIGIN+path,headers:new Headers(headers),method};}
 function b64(bytes) {return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 const originalFetch = globalThis.fetch;
@@ -84,6 +96,34 @@ try {
  check('authenticated asset served',(await worker.fetch(request('/',headers),env)).status === 200);
  const me = await (await worker.fetch(request('/api/me',headers),env)).json();
  check('account identity returned',me.sub === 'google-user');
+ const signing=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+ env.OFFLINE_PRIVATE_KEY=JSON.stringify(await crypto.subtle.exportKey('jwk',signing.privateKey));
+ const permit=await(await worker.fetch(request('/api/offline-permit',headers),env)).json();
+ const [payload,signature]=permit.token.split('.');
+ const decode=x=>Uint8Array.from(atob(x.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(x.length/4)*4,'=')),c=>c.charCodeAt(0));
+ const permitKey=await crypto.subtle.importKey('jwk',permit.key,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
+ check('offline permit signed',await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},permitKey,decode(signature),new TextEncoder().encode(payload)));
+ const claims=JSON.parse(new TextDecoder().decode(decode(payload)));
+ check('offline permission three days',claims.exp-claims.iat===259200&&claims.sub==='google-user');
+ const session=sessions.get(await hash(token));const fullExpiry=session.expires_at;session.expires_at=Math.floor(Date.now()/1000)+3600;
+ const short=await(await worker.fetch(request('/api/offline-permit',headers),env)).json();
+ check('permit limited by session',JSON.parse(new TextDecoder().decode(decode(short.token.split('.')[0]))).exp===session.expires_at);session.expires_at=fullExpiry;
+ check('anonymous cloud denied',(await worker.fetch(request('/api/sync'),env)).status===401);
+ check('empty cloud',(await(await worker.fetch(request('/api/sync',headers),env)).json()).exists===false);
+ const backup={format:'redsheet-local-backup',version:1,createdAt:new Date().toISOString(),library:{notes:[],folders:[]}};
+ function upload(precondition,body=JSON.stringify(backup)){
+  return worker.fetch({url:env.APP_ORIGIN+'/api/sync',method:'POST',headers:new Headers({...headers,Origin:env.APP_ORIGIN,...precondition}),body:new Blob([body]).stream()},env);
+ }
+ check('sync precondition required',(await upload({})).status===428);
+ const first=await upload({'If-None-Match':'*'});check('first cloud upload',first.status===200);const firstMeta=await first.json();
+ check('stale cloud upload rejected',(await upload({'If-None-Match':'*'})).status===409);
+ const cloud=await worker.fetch(request('/api/sync',headers),env);check('cloud download etag',cloud.headers.get('ETag')===firstMeta.etag);
+ check('cloud data roundtrip',(await cloud.json()).format==='redsheet-local-backup');
+ check('conditional update succeeds',(await upload({'If-Match':firstMeta.etag})).status===200);
+ check('old version cannot overwrite',(await upload({'If-Match':firstMeta.etag})).status===409);
+ check('previous snapshot retained',[...objects.keys()].some(k=>k.includes('/history/')));
+ const secondToken='b'.repeat(43);accounts.set('second@gmail.com',{enabled:1,sub:'second'});sessions.set(await hash(secondToken),{email:'second@gmail.com',google_sub:'second',expires_at:Math.floor(Date.now()/1000)+100});
+ check('cloud account separation',(await(await worker.fetch(request('/api/sync',{Cookie:'__Host-redsheet-session='+secondToken}),env)).json()).exists===false);
  accounts.get('allowed@gmail.com').enabled = 0;
  check('revoked account denied with cookie',(await worker.fetch(request('/api/me',headers),env)).status === 401);
  accounts.get('allowed@gmail.com').enabled = 1;
