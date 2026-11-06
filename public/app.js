@@ -8,7 +8,7 @@ const library = $('library'), noteFile = $('noteFile');
 const menuItems = [$('openLibrary'), $('openImport')];
 let raised = false, drag = null, suppressClick = false, swipe = null;
 let questionIndex = 0, answerShown = false, testComplete = false;
-let answerSwipe = null, suppressRevealClick = false;
+let answerSwipe = null, testTransitioning = false, testViewRevision = 0;
 
 const sampleQuestions = [
   {
@@ -38,6 +38,7 @@ function renderQuestion() {
   testAnswer.hidden = !answerShown;
   revealAnswer.hidden = answerShown || testComplete;
   nextQuestion.hidden = !answerShown && !testComplete;
+  if ($('previousQuestion')) $('previousQuestion').disabled = !testComplete && !answerShown && questionIndex === 0;
   nextQuestion.textContent = testComplete ? 'もう一度' : questionIndex + 1 === questions.length ? 'テストを終える' : '次の問題';
   $('testPromptMedia').hidden = testComplete || !item.prompt;
   renderBlocks($('testPromptMedia'), testComplete ? '' : item.prompt);
@@ -53,39 +54,76 @@ function showAnswer() {
   testAnswer.classList.add('is-entering');
   $('testAnswerHeading').focus();
 }
-revealAnswer.addEventListener('pointerdown', event => {
-  if (event.button !== 0) return;
-  suppressRevealClick = false;
-  answerSwipe = {id:event.pointerId, x:event.clientX, y:event.clientY};
-  revealAnswer.setPointerCapture(event.pointerId);
-});
-revealAnswer.addEventListener('pointerup', event => {
-  if (answerSwipe?.id !== event.pointerId) return;
-  const up = answerSwipe.y - event.clientY;
-  const across = Math.abs(answerSwipe.x - event.clientX);
-  answerSwipe = null;
-  suppressRevealClick = Math.max(Math.abs(up), across) > 12;
-  if (up >= 38 && up > across * 1.25) showAnswer();
-});
-revealAnswer.addEventListener('pointercancel', () => { answerSwipe = null; });
-revealAnswer.addEventListener('click', event => {
-  if (event.detail === 0 || !suppressRevealClick) showAnswer();
-  suppressRevealClick = false;
-});
-nextQuestion.addEventListener('click', () => {
-  if (testComplete) {
-    questionIndex = 0;
-    testComplete = false;
-  } else if (questionIndex + 1 < questions.length) {
-    questionIndex += 1;
-  } else {
-    testComplete = true;
+async function moveTest(direction) {
+  if (testTransitioning || phone.dataset.mode !== 'test') return;
+  if (direction < 0 && !testComplete && !answerShown && questionIndex === 0) return;
+  if (direction > 0 && testComplete) return;
+  testTransitioning = true;
+  const viewRevision = testViewRevision;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  try {
+    if (!reduce) await testBody.animate([{opacity:1,transform:'translateY(0)'},{opacity:0,transform:`translateY(${-direction*22}px)`}],{duration:110,easing:'ease-in',fill:'forwards'}).finished;
+    if (viewRevision !== testViewRevision) return;
+    if (direction > 0) {
+      if (!answerShown) answerShown = true;
+      else {answerShown = false;if (questionIndex + 1 < questions.length) questionIndex++;else testComplete = true;}
+    } else if (testComplete) {testComplete = false;answerShown = true;}
+    else if (answerShown) answerShown = false;
+    else {questionIndex--;answerShown = true;}
+    testAnswer.classList.remove('is-entering');
+    renderQuestion();testBody.scrollTop = 0;
+    if (!reduce) await testBody.animate([{opacity:0,transform:`translateY(${direction*22}px)`},{opacity:1,transform:'translateY(0)'}],{duration:170,easing:'ease-out',fill:'forwards'}).finished;
+    if (viewRevision !== testViewRevision) return;
+    (answerShown ? $('testAnswerHeading') : testQuestion).focus({preventScroll:true});
+  } finally {
+    for (const animation of testBody.getAnimations()) animation.cancel();
+    testTransitioning = false;
   }
-  answerShown = false;
-  testAnswer.classList.remove('is-entering');
-  renderQuestion();
-  testBody.scrollTop = 0;
-  testQuestion.focus({preventScroll:true});
+}
+revealAnswer.addEventListener('click', () => moveTest(1));
+nextQuestion.addEventListener('click', () => {
+  if (testComplete) {questionIndex=0;answerShown=false;testComplete=false;renderQuestion();testBody.scrollTop=0;}
+  else moveTest(1);
+});
+$('previousQuestion').addEventListener('click', () => moveTest(-1));
+const testInteractive = 'button,a,input,select,textarea,p,h1,h2,h3,table,img,svg';
+test.addEventListener('pointerdown', event => {
+  if (event.pointerType === 'touch' || event.button !== 0 || event.isPrimary === false || testTransitioning || event.target.closest(testInteractive)) return;
+  answerSwipe = {id:event.pointerId,x:event.clientX,y:event.clientY,time:performance.now()};
+  try {test.setPointerCapture(event.pointerId);} catch {}
+});
+test.addEventListener('pointerup', event => {
+  if (answerSwipe?.id !== event.pointerId) return;
+  const start=answerSwipe;answerSwipe=null;
+  const dy=event.clientY-start.y,dx=Math.abs(event.clientX-start.x);
+  if (Math.abs(dy)>=45 && Math.abs(dy)>dx*1.4 && performance.now()-start.time<1200) moveTest(dy<0?1:-1);
+});
+test.addEventListener('pointercancel', () => {answerSwipe=null;});
+// Non-passive touchmove reserves blank-area gestures while text remains natively scrollable.
+let testTouch = null;
+test.addEventListener('touchstart', event => {
+  testTouch = null;
+  if (event.touches.length !== 1 || testTransitioning || event.target.closest(testInteractive)) return;
+  const touch=event.touches[0];
+  testTouch={id:touch.identifier,x:touch.clientX,y:touch.clientY,time:performance.now()};
+},{passive:true});
+test.addEventListener('touchmove', event => {
+  if (!testTouch) return;
+  if (event.touches.length !== 1) {testTouch=null;return;}
+  const touch=event.touches[0],dy=Math.abs(touch.clientY-testTouch.y),dx=Math.abs(touch.clientX-testTouch.x);
+  if (dy>8 && dy>dx*1.4 && event.cancelable) event.preventDefault();
+},{passive:false});
+test.addEventListener('touchend', event => {
+  if (!testTouch) return;
+  const start=testTouch;testTouch=null;
+  const touch=[...event.changedTouches].find(t=>t.identifier===start.id);if(!touch)return;
+  const dy=touch.clientY-start.y,dx=Math.abs(touch.clientX-start.x);
+  if (Math.abs(dy)>=45 && Math.abs(dy)>dx*1.4 && performance.now()-start.time<1200) moveTest(dy<0?1:-1);
+},{passive:true});
+test.addEventListener('touchcancel',()=>{testTouch=null;},{passive:true});
+test.addEventListener('keydown', event => {
+  if (event.target.closest('button,a,input,textarea,select')) return;
+  if (event.key==='ArrowUp'||event.key==='ArrowDown') {event.preventDefault();moveTest(event.key==='ArrowUp'?1:-1);}
 });
 function setRaised(value) {
   raised = value;
@@ -347,6 +385,7 @@ function updateMode(mode, title) {
   $('modeTitle').textContent = title;
 }
 function leaveNote() {
+  testViewRevision++;
   if (!activeNote) return;
   noteStates.set(activeNote.id, {
     scroll:activeNote.kind === 'learn' ? reading.scrollTop : testBody.scrollTop,

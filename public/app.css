@@ -106,3 +106,8 @@ article h2{font-size:15px;margin-bottom:5px}
 .phone[data-mode="upload"] :is(.reading,.sheet,.grip){display:none!important}
 #uploadView h1{font-size:23px;margin:22px 0}#uploadView h2{font-size:18px}#uploadView hr{border:0;border-top:1px solid var(--line);margin:28px 0}
 #uploadView .library-editor{display:grid;gap:12px}
+
+.test,.test-body{touch-action:auto}
+.test-controls{display:flex;justify-content:space-between;gap:12px;padding-top:12px;flex:none}
+.test-controls button{width:auto;border:1px solid var(--line);border-radius:10px;background:#fff;color:#8d2939;padding:9px 14px;font-size:13px;font-weight:600;margin:0;touch-action:manipulation}
+.test-controls button:disabled{opacity:.35;cursor:default}

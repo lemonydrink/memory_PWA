@@ -55,11 +55,11 @@
         </div>
       </div>
     </div>
-    <button class="test-reveal" id="revealAnswer" type="button" aria-label="答えと解説を表示">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 11 6-6 6 6M12 5v14"/></svg>
-      上にスワイプ<small>タップでも答えを表示</small>
-    </button>
-    <button class="test-next" id="nextQuestion" type="button" hidden></button>
+    <div class="test-controls">
+      <button class="test-previous" id="previousQuestion" type="button" disabled>戻る</button>
+      <button class="test-reveal" id="revealAnswer" type="button">答えを表示</button>
+      <button class="test-next" id="nextQuestion" type="button" hidden></button>
+    </div>
   </div>
   <div class="home" aria-hidden="true"></div>
   <button class="scrim" id="scrim" tabindex="-1" aria-label="メニューを閉じる"></button>

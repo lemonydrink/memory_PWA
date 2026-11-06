@@ -11,6 +11,37 @@
   setRaised(true); check('sheet raised', phone.classList.contains('raised'));
   openNote({...notes[1],id:'check-test',assets:{}});
   showAnswer(); check('answer reveal', answerShown);
+  openNote({id:'swipe-test',kind:'test',name:'スワイプ確認',questions:sampleQuestions.slice(0,2)});
+  async function gesture(dy,target=testBody,dx=0){
+   target.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:101,isPrimary:true,button:0,clientX:180,clientY:300}));
+   target.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:101,isPrimary:true,button:0,clientX:180+dx,clientY:300+dy}));
+   for(let i=0;i<100&&testTransitioning;i++)await new Promise(r=>setTimeout(r,10));
+  }
+  await gesture(-80);check('blank swipe reveals answer',answerShown&&questionIndex===0);
+  await gesture(-80);check('answer swipe advances and clears',!answerShown&&questionIndex===1&&testAnswer.hidden);
+  await gesture(80);check('down swipe restores previous answer',answerShown&&questionIndex===0);
+  await gesture(80);check('down swipe hides answer',!answerShown&&questionIndex===0);
+  await gesture(80);check('first question backward boundary',questionIndex===0&&!answerShown);
+  await gesture(-80,testQuestion);check('content swipe preserves reading',!answerShown);
+  await gesture(-20,testBody,100);check('horizontal swipe ignored',!answerShown);
+  await gesture(-80);await gesture(-80);await gesture(-80);await gesture(-80);
+  check('last answer advances to completion',testComplete);
+  await gesture(80);check('completion swipe restores last answer',!testComplete&&answerShown&&questionIndex===1);
+  await gesture(80);check('last question answer can be hidden',!answerShown&&questionIndex===1);
+  async function touchGesture(target,dy){
+   const start=new Touch({identifier:7,target,clientX:180,clientY:300});
+   const end=new Touch({identifier:7,target,clientX:180,clientY:300+dy});
+   target.dispatchEvent(new TouchEvent('touchstart',{bubbles:true,touches:[start],changedTouches:[start]}));
+   const move=new TouchEvent('touchmove',{bubbles:true,cancelable:true,touches:[end],changedTouches:[end]});target.dispatchEvent(move);
+   target.dispatchEvent(new TouchEvent('touchend',{bubbles:true,touches:[],changedTouches:[end]}));
+   for(let i=0;i<100&&testTransitioning;i++)await new Promise(r=>setTimeout(r,10));
+   return move.defaultPrevented;
+  }
+  check('touch blank reserves vertical swipe',await touchGesture(testBody,-80));
+  check('touch swipe reveals answer',answerShown&&questionIndex===1);
+  check('touch text keeps native scroll',!await touchGesture(testQuestion,-80)&&answerShown&&questionIndex===1);
+  await touchGesture(testBody,80);check('touch downward hides answer',!answerShown&&questionIndex===1);
+  check('swipe target prompt removed',!document.getElementById('revealAnswer').textContent.includes('スワイプ'));
   const target = document.createElement('div');
   renderBlocks(target, '前文\n\n| 名称 | 数 | 位置 |\n| :--- | ---: | :---: |\n| **核** | 2 | 中央 |\n| a\\|b | 3 | 左 |\n\n後文', true);
   check('table rows', target.querySelectorAll('tbody tr').length === 2);
