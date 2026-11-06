@@ -1,0 +1,6 @@
+name = "memory-pwa"
+compatibility_date = "2026-11-06"
+pages_build_output_dir = "./public"
+
+# This project uses dashboard-managed D1 bindings and environment variables.
+# In Cloudflare Pages, bind a D1 database under the variable name DB.

@@ -1,0 +1,5 @@
+# Copy to .dev.vars for local Wrangler development. Never commit real secrets.
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+APP_ORIGIN=https://your-app.pages.dev
+SESSION_DAYS=90

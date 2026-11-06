@@ -8,6 +8,9 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <title>赤シートで暗記</title>
 <link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/auth.css">
+<body class="auth-locked">
+<div id="authGate"><div class="auth-card"><h1>赤シート暗記ノート</h1><p id="authStatus" role="status">ログイン状態を確認しています…</p><button id="authRetry" type="button">再試行</button><p><a href="/login">ログイン画面へ</a></p></div></div>
 <main class="phone" id="phone" data-mode="library" aria-label="赤シート暗記アプリ">
   <div class="status" aria-hidden="true"><span>9:41</span><i class="notch"></i><svg width="59" height="14" viewBox="0 0 59 14" fill="currentColor"><path d="M1 10h3v3H1zm4-2h3v5H5zm4-3h3v8H9zm4-3h3v11h-3zm9 3a10 10 0 0 1 13 0l-1.5 1.8a8 8 0 0 0-10 0zm2.5 3a6 6 0 0 1 8 0l-1.5 1.7a4 4 0 0 0-5 0zm2.2 2.6a3 3 0 0 1 3.7 0l-1.9 2zM57 6h2v3h-2z"/><rect x="39" y="3" width="17" height="9" rx="2.5" fill="none" stroke="currentColor"/><rect x="41" y="5" width="13" height="5" rx="1"/></svg></div>
   <header id="header"><button class="menu-button" id="menuButton" aria-label="メニューを開く" aria-controls="drawer" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg></button><span id="modeTitle">暗記ノート</span></header>
@@ -68,5 +71,5 @@
     <button class="current" id="openImport" aria-current="false">ファイルを読み込む</button>
   </aside>
 </main>
-<script src="/app.js" defer></script>
+<script src="/bootstrap.js" defer></script>
 </html>

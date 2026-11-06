@@ -25,10 +25,18 @@
   showLibrary();
   const db = await storage; check('IndexedDB', !!db);
   await saveLibrary();
-  const saved = await new Promise(resolve => {const r = db.transaction('data').objectStore('data').get('library');r.onsuccess=()=>resolve(r.result);});
+  const saved = await new Promise(resolve => {const r = db.transaction('data').objectStore('data').get('library:' + window.redsheetUser.sub);r.onsuccess=()=>resolve(r.result);});
   check('persisted library', saved.notes.length >= 2);
+  check('account identity UI', document.querySelector('form[action="/auth/logout"]')?.method === 'post');
+  const other = await new Promise(resolve => {const r = db.transaction('data').objectStore('data').get('library:other-account');r.onsuccess=()=>resolve(r.result);});
+  check('account storage separated', !other);
+  window.dispatchEvent(new Event('offline'));
+  check('offline locks screen', document.body.classList.contains('auth-locked'));
+  document.getElementById('authRetry').click();
+  for (let i = 0; i < 100 && document.body.classList.contains('auth-locked'); i++) await new Promise(resolve => setTimeout(resolve,20));
+  check('online retry unlocks screen', !document.body.classList.contains('auth-locked'));
   const reg = await navigator.serviceWorker.ready; check('service worker', !!reg.active);
-  const cache = await caches.open('redsheet-v2'); check('offline shell', !!await cache.match('/app.js'));
+  check('old offline cache removed', !(await caches.keys()).some(k => k.startsWith('redsheet-')));
   document.body.innerHTML = '<pre id="result">PASS '+results.join(' | ')+'</pre>';
  } catch(e) {document.body.innerHTML='<pre id="result">FAIL '+e.message+'</pre>';}
 })();

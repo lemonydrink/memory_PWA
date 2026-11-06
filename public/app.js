@@ -630,13 +630,35 @@ function openStorage() {
 const storage = openStorage().catch(() => null);
 storage.then(db => {
   if (!db) return;
-  const request = db.transaction('data').objectStore('data').get('library');
+  const request = db.transaction('data').objectStore('data').get('library:' + window.redsheetUser.sub);
   request.onsuccess = () => {
     if (libraryRevision || !request.result) return;
     catalog = request.result;
     renderLibrary();
   };
 });
+async function offerLegacyImport(db) {
+  if (!db) return;
+  const legacy = await new Promise(resolve => {
+    const request = db.transaction('data').objectStore('data').get('library');
+    request.onsuccess = () => resolve(request.result); request.onerror = () => resolve(null);
+  });
+  if (!legacy) return;
+  const adopt = button('認証追加前の教材を取り込む','library-button secondary',async () => {
+    if (!confirm('この端末に保存されている認証追加前の教材を、現在のアカウントへコピーします。現在のアカウントの教材は置き換わります。先にバックアップを保存してください。')) return;
+    try {
+      const tx = db.transaction('data','readwrite');
+      await new Promise((resolve,reject) => {
+        tx.oncomplete = resolve; tx.onabort = reject;
+        tx.objectStore('data').put(legacy,'library:' + window.redsheetUser.sub);
+      });
+      libraryRevision++; catalog = structuredClone(legacy); folderId = ''; noteStates.clear(); renderLibrary();
+      statusLine.textContent = '以前の教材をコピーしました。元データも端末内に保持しています。';
+    } catch {statusLine.textContent = '教材を取り込めませんでした。';}
+  });
+  $('newFolder').after(adopt);
+}
+storage.then(offerLegacyImport).catch(() => {});
 async function saveLibrary() {
   libraryRevision++;
   try {
@@ -646,7 +668,7 @@ async function saveLibrary() {
     await new Promise((resolve,reject) => {
       transaction.oncomplete = resolve;
       transaction.onabort = reject;
-      transaction.objectStore('data').put(catalog,'library');
+      transaction.objectStore('data').put(catalog,'library:' + window.redsheetUser.sub);
     });
   } catch {
     statusLine.textContent += ' このブラウザではノートを次回まで保存できません。';
@@ -655,11 +677,6 @@ async function saveLibrary() {
 renderLibrary();
 
 
-if ('serviceWorker' in navigator) {
- window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {
- statusLine.textContent = 'オフライン機能を準備できませんでした。オンラインで再読み込みしてください。';
- }));
-}
 
 function downloadFile(blob, name) {
  const url = URL.createObjectURL(blob);
@@ -717,7 +734,7 @@ restoreInput.addEventListener('change',async () => {
   const db = await storage; if (!db) throw new Error('保存領域を開けません。');
   await new Promise((resolve,reject) => {
    const tx = db.transaction('data','readwrite'); tx.oncomplete = resolve; tx.onabort = () => reject(new Error('保存に失敗しました。'));
-   tx.objectStore('data').put(lib,'library');
+   tx.objectStore('data').put(lib,'library:' + window.redsheetUser.sub);
   });
   libraryRevision++; catalog = lib; folderId = ''; noteStates.clear(); renderLibrary(); statusLine.textContent = '復元しました。';
  } catch(error) { statusLine.textContent = '復元できませんでした：' + error.message; }
