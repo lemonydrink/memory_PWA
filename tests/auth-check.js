@@ -2,7 +2,7 @@ import worker, {hash, verifyGoogleIdToken} from '/_worker.js';
 const passed = [];
 function check(name, value) {if (!value) throw new Error(name);passed.push(name);}
 const accounts = new Map(), sessions = new Map(), transactions = new Map();
-const env = {APP_ORIGIN:'https://test.example',GOOGLE_CLIENT_ID:'test-client',GOOGLE_CLIENT_SECRET:'secret',SESSION_DAYS:'90',ASSETS:{fetch:async () => new Response('asset')}};
+const env = {APP_ORIGIN:'https://test.example',GOOGLE_CLIENT_ID:'test-client',GOOGLE_CLIENT_SECRET:'secret',SESSION_DAYS:'90',ASSETS:{fetch:async request => new URL(request.url).pathname === '/login.html' ? new Response(null,{status:308,headers:{Location:'/login'}}) : new Response('asset')}};
 env.DB = {prepare(sql) {return {bind(...args) {return {
  async first() {
   if (sql.startsWith('SELECT s.google_sub')) {
@@ -53,6 +53,8 @@ globalThis.Response = class extends OriginalResponse {
 try {
  let response = await worker.fetch(request('/'),env);
  check('anonymous page denied',response.status === 303 && response.headers.get('Location') === '/login');
+ check('login page avoids canonical redirect',(await worker.fetch(request('/login'),env)).status===200);
+ check('login query avoids canonical redirect',(await worker.fetch(request('/login?error=denied'),env)).status===200);
  check('anonymous API denied',(await worker.fetch(request('/api/me'),env)).status === 401);
  check('missing configuration closed',(await worker.fetch(request('/'),{ASSETS:env.ASSETS})).status === 503);
  check('other origin rejected',(await worker.fetch(new Request('https://preview.example/'),env)).status === 403);

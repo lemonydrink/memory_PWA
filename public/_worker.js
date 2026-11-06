@@ -161,7 +161,7 @@ async function handle(request, env) {
  if (!['GET','HEAD'].includes(request.method) && !(path === '/api/sync' && request.method === 'POST')) return json({error:'Method not allowed'},405);
  if (path === '/auth/login') return startLogin(request,env);
  if (path === '/auth/callback') return callback(request,env);
- if (path === '/login' || path === '/login.html') return asset(request,env,'/login.html');
+ if (path === '/login' || path === '/login.html') return asset(request,env,'/login');
  if (['/login.js','/offline.js','/auth.css','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png'].includes(path)) return asset(request,env);
  const user = await sessionUser(request,env);
  if (!user) {
