@@ -57,10 +57,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if MODE == 'auth':
                 html = '<!doctype html><script src="/offline.js"></script><script type="module" src="/test-auth.js"></script>'
             else:
-                html = (ROOT / 'public/index.html').read_text().replace('</html>', '<script src="/test-app.js" defer></script></html>')
+                html = (ROOT / 'public/index.html').read_text().replace('<script src="/offline.js"', '<script src="/test-timers.js"></script><script src="/offline.js"').replace('</html>', '<script src="/test-app.js" defer></script></html>')
             self.content(html, 'text/html; charset=utf-8')
         elif self.path == '/test-auth.js':
             self.content((ROOT / 'tests/auth-check.js').read_text(), 'text/javascript')
+        elif self.path == '/test-timers.js':
+            self.content("window.__testIntervals=[];const nativeInterval=window.setInterval;window.setInterval=(callback,delay,...args)=>{window.__testIntervals.push(delay);return nativeInterval(callback,delay,...args);};", 'text/javascript')
         elif self.path == '/test-app.js':
             script = (ROOT / 'tests/browser-check.js').read_text()
             script = script.replace("document.body.innerHTML = '<pre id=\"result\">PASS '+results.join(' | ')+'</pre>';", "fetch('/result', {method:'POST',body:'PASS APP: '+results.join(' | ')});")

@@ -16,7 +16,7 @@ INSERT INTO allowed_accounts (email) VALUES ('your-email@gmail.com');
 
 メールは小文字で登録してください。初回ログイン時にGoogleの不変ID（sub）へ紐付けます。以後メールアドレスが同じでも別のGoogle IDでは利用できません。ログイン画面からの新規登録はありません。
 
-無効化は次のとおり。ログインCookieが残っていても次回のリクエストから拒否します。開いている画面は復帰時・最大約1分の定期確認でロックされます。
+無効化は次のとおり。ログインCookieが残っていても次回のリクエストから拒否します。開いている画面は復帰時・最大約10分の定期確認でロックされます。
 
 ```sql
 UPDATE allowed_accounts SET enabled = 0 WHERE email = 'your-email@gmail.com';
@@ -102,3 +102,5 @@ python3 tools/generate_offline_key.py
 - https://developers.cloudflare.com/pages/functions/advanced-mode/
 
 - https://developers.cloudflare.com/r2/api/workers/workers-api-reference/
+
+通常の利用権限確認は10分ごとにバックグラウンドで実行し、確認中も学習画面を維持します。短時間の画面復帰では再通信を省きます。失効・期限切れ・確認失敗で利用できない場合は画面をロックします。

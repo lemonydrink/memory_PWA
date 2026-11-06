@@ -1,6 +1,7 @@
 (() => {
  const gate=document.getElementById('authGate');
- let user=null,checking=null,appLoaded=false,shellReady=false,expiryTimer=null;
+ let user=null,checking=null,appLoaded=false,shellReady=false,expiryTimer=null,lastAttemptAt=-Infinity;
+ const CHECK_INTERVAL=10*60*1000;
  function lock(message='ログイン状態を確認しています…') {document.body.classList.add('auth-locked');gate.hidden=false;document.getElementById('authStatus').textContent=message;}
  async function load(next) {
   if(user&&user.sub!==next.sub){location.reload();return;}
@@ -33,7 +34,9 @@
   await load(await window.redsheetOffline.user());
  }
  async function check(){
-  lock();if(checking)return checking;
+  if(checking)return checking;
+  if(!appLoaded)lock();
+  lastAttemptAt=Date.now();
   checking=(async()=>{
    if(localStorage.getItem('redsheet-logout-pending')){
     try{const r=await fetch('/auth/logout',{method:'POST',credentials:'same-origin',signal:AbortSignal.timeout(15000)});if(!r.ok)throw new Error();localStorage.removeItem('redsheet-logout-pending');location.replace('/login');}catch{lock('ログアウト済みです。オンラインに接続してログインしてください。');}return;
@@ -42,7 +45,7 @@
    let response;
    try{response=await fetch('/api/me',{cache:'no-store',credentials:'same-origin',redirect:'manual',signal:AbortSignal.timeout(15000)});}
    catch{try{await offline();}catch(error){lock(error.message);}return;}
-   if(response.status===401||response.status===403){await window.redsheetOffline.clear();location.replace('/login');return;}
+   if(response.status===401||response.status===403){lock('利用許可が失効しました。再ログインしてください。');await window.redsheetOffline.clear();location.replace('/login');return;}
    // Server errors and explicit denials must never be treated as offline authorization.
    if(!response.ok){lock('利用許可を確認できません。時間をおいて再試行してください。');return;}
    try{
@@ -68,9 +71,14 @@
  window.redsheetAuth={online:false,refresh:check,async logout(){
   lock('ログアウトしています…');await window.redsheetOffline.clear();localStorage.setItem('redsheet-logout-pending','1');await check();
  }};
+ function checkIfDue(){
+  if(document.hidden)return;
+  if(user&&user.expiresAt*1000<=Date.now())lock('利用許可の期限を確認しています…');
+  if(!appLoaded || user?.expiresAt*1000<=Date.now() || Date.now()-lastAttemptAt>=CHECK_INTERVAL || Date.now()<lastAttemptAt)check();
+ }
  document.getElementById('authRetry').addEventListener('click',check);
- document.addEventListener('visibilitychange',()=>{if(document.hidden)lock();else check();});
- window.addEventListener('pagehide',()=>lock());window.addEventListener('pageshow',check);
- window.addEventListener('offline',()=>{lock();offline().catch(e=>lock(e.message));});window.addEventListener('online',check);
- setInterval(()=>{if(!document.hidden)check();},60000);check();
+ document.addEventListener('visibilitychange',checkIfDue);
+ window.addEventListener('pageshow',checkIfDue);
+ window.addEventListener('offline',()=>{offline().catch(e=>lock(e.message));});window.addEventListener('online',check);
+ setInterval(checkIfDue,CHECK_INTERVAL);check();
 })();
