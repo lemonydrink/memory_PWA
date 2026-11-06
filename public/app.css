@@ -21,11 +21,11 @@ section{border-top:1px solid var(--line);padding:18px 0 19px}
 article h2{font-size:15px;margin-bottom:5px}
 .term{color:var(--red);font-weight:750;text-decoration-line:underline;text-decoration-color:#000;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-skip-ink:none}
 .end{color:var(--muted);font-size:13px}
-.sheet{position:absolute;z-index:2;inset:var(--sheet-top,calc(100% - 60px)) 0 0;border-radius:29px 29px 0 0;background:var(--red);mix-blend-mode:darken;transition:top .24s cubic-bezier(.2,.7,.3,1);touch-action:none}
+.sheet{position:absolute;z-index:2;inset:var(--sheet-top,calc(100% - 60px)) 0 0;border-radius:29px 29px 0 0;background:var(--red);mix-blend-mode:darken;transition:top .24s cubic-bezier(.2,.7,.3,1);pointer-events:none}
 .grip{position:absolute;z-index:4;top:var(--sheet-top,calc(100% - 60px));left:50%;transform:translateX(-50%);height:var(--handle);width:min(70%,300px);touch-action:none;transition:top .24s cubic-bezier(.2,.7,.3,1);border:0;background:transparent;display:grid;justify-items:center;align-items:start;padding-top:13px;cursor:grab}
 .grip:active{cursor:grabbing}
 .grip::before{content:"";width:44px;height:5px;border-radius:5px;background:var(--dark-red)}
-.phone.dragging .sheet,.phone.dragging .grip{top:var(--drag-top);transition:none}
+.phone.dragging .sheet,.phone.dragging .grip,.phone.dragging .sheet-guard{top:var(--drag-top);transition:none}
 .home{position:absolute;z-index:4;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;background:#18171a;border-radius:10px;pointer-events:none}
 .scrim{position:absolute;z-index:6;inset:0;border:0;background:#20132261;opacity:0;visibility:hidden;transition:opacity .24s,visibility .24s}
 .drawer{position:absolute;z-index:7;inset:0 auto 0 0;width:79%;background:#fff;padding:68px 24px 24px;transform:translateX(-101%);visibility:hidden;transition:transform .25s cubic-bezier(.2,.75,.25,1),visibility .25s;touch-action:pan-y}
@@ -111,3 +111,6 @@ article h2{font-size:15px;margin-bottom:5px}
 .test-controls button:disabled{opacity:.35;cursor:default}
 
 .phone{--safe-bottom:env(safe-area-inset-bottom,0px)}
+
+.sheet-guard{position:absolute;z-index:4;top:var(--sheet-top,calc(100% - 60px));left:0;right:0;height:calc(var(--handle) + 20px);background:transparent;touch-action:none;transition:top .24s cubic-bezier(.2,.7,.3,1)}
+.phone:not([data-mode="learn"]) .sheet-guard{display:none}
