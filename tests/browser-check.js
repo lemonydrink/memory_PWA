@@ -9,6 +9,29 @@
   openNote({...notes[0],id:'check',assets:{}});
   check('red terms', reading.querySelector('.term').textContent === '細胞');
   setRaised(true); check('sheet raised', phone.classList.contains('raised'));
+  const stops=sheetStops();check('four sheet stops',stops.length===4&&stops.every((v,i)=>i===0||v>stops[i-1]));
+  check('extended sheet range',stops[0]<150&&stops[3]>phone.clientHeight-100);
+  const gripWidth=grip.getBoundingClientRect().width;
+  check('wider but bounded grip target',gripWidth>146&&gripWidth<phone.clientWidth*.85);
+  grip.style.transition='none';
+  function dragSheet(to,cancel=false){
+   const y=grip.getBoundingClientRect().top+20;
+   const end=y+to-grip.offsetTop;
+   grip.dispatchEvent(new PointerEvent('pointerdown',{pointerId:51,button:0,isPrimary:true,clientY:y}));
+   grip.dispatchEvent(new PointerEvent('pointermove',{pointerId:51,clientY:end}));
+   grip.dispatchEvent(new PointerEvent(cancel?'pointercancel':'pointerup',{pointerId:51,clientY:end}));
+   if(!cancel)grip.dispatchEvent(new MouseEvent('click',{detail:1}));
+  }
+  setSheetStage(3);dragSheet(stops[3]-12);check('short drag does not jump',sheetStage===3);
+  dragSheet(stops[2]+10);check('drag snaps to nearest second stop',sheetStage===2);
+  dragSheet(stops[1]-10);check('drag snaps to nearest third stop',sheetStage===1);
+  dragSheet(stops[0]-200);check('drag clamps at top',sheetStage===0);
+  dragSheet(stops[3]+200);check('drag clamps at bottom',sheetStage===3);
+  dragSheet(stops[0],true);check('cancel keeps selected stop',sheetStage===3&&!phone.classList.contains('dragging'));
+  setSheetStage(1);showLibrary();openNote({...notes[0],id:'check',assets:{}});check('sheet stop restored per note',sheetStage===1);
+  grip.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown'}));check('sheet keyboard step',sheetStage===2);
+  grip.dispatchEvent(new KeyboardEvent('keydown',{key:'Home'}));check('sheet keyboard top boundary',sheetStage===0);
+  grip.style.transition='';
   openNote({...notes[1],id:'check-test',assets:{}});
   showAnswer(); check('answer reveal', answerShown);
   openNote({id:'swipe-test',kind:'test',name:'スワイプ確認',questions:sampleQuestions.slice(0,2)});

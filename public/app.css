@@ -4,7 +4,7 @@
 body{margin:0;min-height:100dvh;display:grid;place-items:center}
 button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:focus-visible{outline:2px solid #581c74;outline-offset:3px}
-.phone{width:min(406px,100vw);height:min(860px,100dvh);border:8px solid #21252c;border-radius:54px;background:#fff;position:relative;overflow:hidden;isolation:isolate;box-shadow:0 16px 44px #29121e23;--top:105px;--handle:48px;--open:260px;--rest-depth:224px;--rest:max(var(--open),calc(100% - var(--rest-depth)))}
+.phone{width:min(406px,100vw);height:min(860px,100dvh);border:8px solid #21252c;border-radius:54px;background:#fff;position:relative;overflow:hidden;isolation:isolate;box-shadow:0 16px 44px #29121e23;--top:105px;--handle:48px}
 .status{position:absolute;z-index:5;inset:0 0 auto;height:47px;display:flex;justify-content:space-between;align-items:center;padding:0 24px;font-size:14px;font-weight:750;pointer-events:none}
 .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:146px;height:25px;border-radius:0 0 16px 16px;background:#141416}
 header{position:absolute;z-index:3;inset:47px 0 auto;height:58px;background:white;border-bottom:1px solid var(--line);display:grid;place-items:center;font-size:16px;font-weight:750}
@@ -21,11 +21,10 @@ section{border-top:1px solid var(--line);padding:18px 0 19px}
 article h2{font-size:15px;margin-bottom:5px}
 .term{color:var(--red);font-weight:750;text-decoration-line:underline;text-decoration-color:#000;text-decoration-thickness:1px;text-underline-offset:3px;text-decoration-skip-ink:none}
 .end{color:var(--muted);font-size:13px}
-.sheet{position:absolute;z-index:2;inset:var(--rest) 0 0;border-radius:29px 29px 0 0;background:var(--red);mix-blend-mode:darken;transition:top .24s cubic-bezier(.2,.7,.3,1);touch-action:none}
-.grip{position:absolute;z-index:4;top:var(--rest);left:50%;transform:translateX(-50%);height:var(--handle);width:146px;touch-action:none;transition:top .24s cubic-bezier(.2,.7,.3,1);border:0;background:transparent;display:grid;justify-items:center;align-items:start;padding-top:13px;cursor:grab}
+.sheet{position:absolute;z-index:2;inset:var(--sheet-top,calc(100% - 60px)) 0 0;border-radius:29px 29px 0 0;background:var(--red);mix-blend-mode:darken;transition:top .24s cubic-bezier(.2,.7,.3,1);touch-action:none}
+.grip{position:absolute;z-index:4;top:var(--sheet-top,calc(100% - 60px));left:50%;transform:translateX(-50%);height:var(--handle);width:min(70%,300px);touch-action:none;transition:top .24s cubic-bezier(.2,.7,.3,1);border:0;background:transparent;display:grid;justify-items:center;align-items:start;padding-top:13px;cursor:grab}
 .grip:active{cursor:grabbing}
 .grip::before{content:"";width:44px;height:5px;border-radius:5px;background:var(--dark-red)}
-.phone.raised .sheet,.phone.raised .grip{top:var(--open)}
 .phone.dragging .sheet,.phone.dragging .grip{top:var(--drag-top);transition:none}
 .home{position:absolute;z-index:4;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;background:#18171a;border-radius:10px;pointer-events:none}
 .scrim{position:absolute;z-index:6;inset:0;border:0;background:#20132261;opacity:0;visibility:hidden;transition:opacity .24s,visibility .24s}
@@ -90,7 +89,6 @@ article h2{font-size:15px;margin-bottom:5px}
 .test-prompt-media{font-size:15px;line-height:1.7;margin-top:12px}
 .test-answer-value p{margin:0}
 @media (max-width:420px){body{background:#fff}.phone{height:100dvh;width:100vw;border:0;border-radius:0;box-shadow:none}.notch{display:none}}
-@media (max-height:590px){.phone{--open:196px;--rest-depth:138px}}
 @media (prefers-reduced-motion:reduce){*,*::before{transition:none!important;animation:none!important}}
 
 .phone{width:min(760px,100vw);height:100dvh;border:0;border-radius:0;box-shadow:none;--top:calc(58px + env(safe-area-inset-top,0px))}
@@ -111,3 +109,5 @@ article h2{font-size:15px;margin-bottom:5px}
 .test-controls{display:flex;justify-content:space-between;gap:12px;padding-top:12px;flex:none}
 .test-controls button{width:auto;border:1px solid var(--line);border-radius:10px;background:#fff;color:#8d2939;padding:9px 14px;font-size:13px;font-weight:600;margin:0;touch-action:manipulation}
 .test-controls button:disabled{opacity:.35;cursor:default}
+
+.phone{--safe-bottom:env(safe-area-inset-bottom,0px)}
