@@ -40,6 +40,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
+        server.request_counts[self.path]=server.request_counts.get(self.path,0)+1
+        if self.path == '/test-request-counts':
+            self.content(json.dumps(server.request_counts),'application/json');return
         if self.path == '/index.html':
             self.send_response(308);self.send_header('Location','/');self.end_headers();return
         if self.path == '/simulate-offline':
@@ -99,6 +102,7 @@ if Path('/opt/google/chrome/chrome').exists():
 if not chrome:
     raise SystemExit('Chrome/Chromium is required')
 server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+server.request_counts={}
 server.cloud_backup=None
 server.cloud_etag=None
 def b64(data):

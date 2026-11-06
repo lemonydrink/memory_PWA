@@ -71,6 +71,11 @@
   const reg = await navigator.serviceWorker.ready;check('service worker',!!reg.active);
   for(let i=0;i<100&&!await caches.match('/sync.js');i++)await new Promise(r=>setTimeout(r,50));
   check('offline shell cached',!!await caches.match('/sync.js'));
+  const before=await(await fetch('/test-request-counts')).json();
+  await fetch('/app.js');await fetch('/app.js');await redsheetAuth.refresh();
+  const after=await(await fetch('/test-request-counts')).json();
+  check('cached assets use no extra network',(after['/app.js']||0)===(before['/app.js']||0));
+  check('valid permit is reused',(after['/api/offline-permit']||0)===(before['/api/offline-permit']||0));
   await fetch('/simulate-offline');
   const frame=document.createElement('iframe');frame.src='/';document.body.append(frame);
   for(let i=0;i<200;i++){await new Promise(r=>setTimeout(r,50));if(frame.contentWindow?.redsheetUser?.offline&&!frame.contentDocument.body.classList.contains('auth-locked'))break;}
