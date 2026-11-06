@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#df4d5c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<title>赤シートで暗記</title>
+<link rel="stylesheet" href="/app.css">
+<main class="phone" id="phone" data-mode="library" aria-label="赤シート暗記アプリ">
+  <div class="status" aria-hidden="true"><span>9:41</span><i class="notch"></i><svg width="59" height="14" viewBox="0 0 59 14" fill="currentColor"><path d="M1 10h3v3H1zm4-2h3v5H5zm4-3h3v8H9zm4-3h3v11h-3zm9 3a10 10 0 0 1 13 0l-1.5 1.8a8 8 0 0 0-10 0zm2.5 3a6 6 0 0 1 8 0l-1.5 1.7a4 4 0 0 0-5 0zm2.2 2.6a3 3 0 0 1 3.7 0l-1.9 2zM57 6h2v3h-2z"/><rect x="39" y="3" width="17" height="9" rx="2.5" fill="none" stroke="currentColor"/><rect x="41" y="5" width="13" height="5" rx="1"/></svg></div>
+  <header id="header"><button class="menu-button" id="menuButton" aria-label="メニューを開く" aria-controls="drawer" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg></button><span id="modeTitle">暗記ノート</span></header>
+  <div class="library" id="library" aria-labelledby="libraryTitle">
+    <div class="library-heading"><h1 id="libraryTitle" tabindex="-1">ノート一覧</h1><button class="library-button" id="libraryImport" type="button">＋ 読み込む</button></div>
+    <nav class="library-path" id="libraryPath" aria-label="フォルダの場所"></nav>
+    <button class="library-button secondary" id="newFolder" type="button">フォルダを作る</button>
+    <div id="libraryEditor"></div>
+    <p class="library-status" id="libraryStatus" role="status"></p>
+    <div class="library-list" id="libraryList"></div>
+  </div>
+  <input id="noteFile" type="file" accept=".md,.zip,text/markdown,application/zip" hidden>
+  <div class="reading" id="reading" tabindex="0" aria-label="学習ノートの本文">
+    <article>
+      <p class="eyebrow">生物基礎 ／ 学習ノート</p>
+      <h1>細胞のしくみ</h1>
+      <p class="intro">本文をスクロールして、赤シートを重ねて覚える。</p>
+      <section><h2>01　細胞と遺伝情報</h2><p>生物のからだをつくる基本単位は<span class="term">細胞</span>です。真核細胞では、<span class="term">核</span>の中に遺伝情報をもつ<span class="term">DNA</span>が収められています。</p></section>
+      <section><h2>02　エネルギーを取り出す</h2><p>細胞が活動に使うエネルギーは、主に<span class="term">ATP</span>の形で受け渡されます。<span class="term">ミトコンドリア</span>は、呼吸によってATPをつくる主な場所です。</p></section>
+      <section><h2>03　タンパク質をつくる</h2><p>DNAの情報は<span class="term">RNA</span>に写し取られます。その情報をもとに、<span class="term">リボソーム</span>がアミノ酸をつないでタンパク質を合成します。</p></section>
+      <section><h2>04　物質の出入りを調節する</h2><p>細胞の外側を囲む<span class="term">細胞膜</span>は、主にリン脂質とタンパク質でできています。物質を選んで通す性質を<span class="term">選択的透過性</span>といいます。</p></section>
+      <section><h2>05　植物の細胞</h2><p>植物の細胞にある<span class="term">葉緑体</span>では、光のエネルギーを使って<span class="term">光合成</span>が行われます。細胞膜の外側には、細胞の形を保つ<span class="term">細胞壁</span>があります。</p></section>
+      <section><h2>06　細胞の中での分担</h2><p><span class="term">小胞体</span>はタンパク質などの合成や輸送に関わります。<span class="term">ゴルジ体</span>は、運ばれてきたタンパク質を加工し、行き先ごとに仕分けます。</p></section>
+      <section class="end">ノートの終わり</section>
+    </article>
+  </div>
+  <div class="sheet" aria-hidden="true"></div>
+  <button class="grip" id="grip" aria-label="赤シートを上げる" aria-pressed="false"></button>
+  <div class="test" id="test" aria-label="テストモード" hidden>
+    <div class="test-progress"><span id="testNoteName"></span><span class="test-count" id="testCount"></span></div>
+    <div class="test-body" id="testBody">
+      <div class="test-prompt">
+        <p class="test-kicker" id="testKicker">問題</p>
+        <h1 class="test-question" id="testQuestion" tabindex="-1"></h1>
+        <div class="test-prompt-media" id="testPromptMedia" hidden></div>
+      </div>
+      <div class="test-answer" id="testAnswer" hidden>
+        <h2 id="testAnswerHeading" tabindex="-1">答え</h2>
+        <div class="test-answer-value" id="testAnswerValue"></div>
+        <div class="test-explanation" id="testExplanation">
+          <h3>解説</h3><div id="testExplanationValue"></div>
+        </div>
+      </div>
+    </div>
+    <button class="test-reveal" id="revealAnswer" type="button" aria-label="答えと解説を表示">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 11 6-6 6 6M12 5v14"/></svg>
+      上にスワイプ<small>タップでも答えを表示</small>
+    </button>
+    <button class="test-next" id="nextQuestion" type="button" hidden></button>
+  </div>
+  <div class="home" aria-hidden="true"></div>
+  <button class="scrim" id="scrim" tabindex="-1" aria-label="メニューを閉じる"></button>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="メニュー" inert>
+    <h2>暗記ノート</h2>
+    <button class="close" id="closeButton" aria-label="メニューを閉じる"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    <hr>
+    <button class="current" id="openLibrary" aria-current="true">ノート一覧</button>
+    <button class="current" id="openImport" aria-current="false">ファイルを読み込む</button>
+  </aside>
+</main>
+<script src="/app.js" defer></script>
+</html>
