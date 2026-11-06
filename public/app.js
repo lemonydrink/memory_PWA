@@ -126,6 +126,7 @@ grip.addEventListener('pointercancel', finishGrip);
 grip.addEventListener('click', () => { if (!suppressClick) setRaised(!raised); });
 
 function menu(open) {
+  if (open && window.redsheetSyncBusy) return;
   phone.classList.toggle('menu-open', open);
   drawer.inert = !open;
   reading.inert = header.inert = grip.inert = test.inert = library.inert = open;
@@ -340,6 +341,7 @@ function openFolder(id) {
 function updateMode(mode, title) {
   phone.dataset.mode = mode;
   library.hidden = mode !== 'library';
+  if ($('uploadView')) $('uploadView').hidden = mode !== 'upload';
   test.hidden = mode !== 'test';
   menuItems[0].setAttribute('aria-current',String(mode === 'library'));
   $('modeTitle').textContent = title;
@@ -447,11 +449,7 @@ function editLibraryItem(note) {
 }
 $('newFolder').addEventListener('click', () => editLibraryItem());
 
-function chooseFile() {
-  if (pendingImport) return;
-  if (phone.dataset.mode !== 'library' || !drawer.inert) showLibrary();
-  noteFile.click();
-}
+function chooseFile() { window.redsheetShowUpload?.(); }
 $('libraryImport').addEventListener('click', chooseFile);
 
 function parseLesson(source) {
@@ -610,7 +608,8 @@ noteFile.addEventListener('change', async () => {
     for (const note of notes) catalog.notes.push({...note,id:uniqueId(),folder:destination});
     statusLine.textContent = notes.length + '件のノートを「' + (folderPath(destination).at(-1)?.name ?? 'すべて') + '」に読み込みました。';
     renderLibrary();
-    saveLibrary();
+    await saveLibrary();
+    showLibrary();
   } catch (error) {
     statusLine.textContent = '読み込めませんでした（' + (error instanceof Error ? error.message : 'ファイルを確認してください。') + '）';
   } finally {
@@ -630,13 +629,35 @@ function openStorage() {
 const storage = openStorage().catch(() => null);
 storage.then(db => {
   if (!db) return;
-  const request = db.transaction('data').objectStore('data').get('library');
+  const request = db.transaction('data').objectStore('data').get('library:' + window.redsheetUser.sub);
   request.onsuccess = () => {
     if (libraryRevision || !request.result) return;
     catalog = request.result;
     renderLibrary();
   };
 });
+async function offerLegacyImport(db) {
+  if (!db) return;
+  const legacy = await new Promise(resolve => {
+    const request = db.transaction('data').objectStore('data').get('library');
+    request.onsuccess = () => resolve(request.result); request.onerror = () => resolve(null);
+  });
+  if (!legacy) return;
+  const adopt = button('認証追加前の教材を取り込む','library-button secondary',async () => {
+    if (!confirm('この端末に保存されている認証追加前の教材を、現在のアカウントへコピーします。現在のアカウントの教材は置き換わります。先にバックアップを保存してください。')) return;
+    try {
+      const tx = db.transaction('data','readwrite');
+      await new Promise((resolve,reject) => {
+        tx.oncomplete = resolve; tx.onabort = reject;
+        tx.objectStore('data').put(legacy,'library:' + window.redsheetUser.sub);
+      });
+      libraryRevision++; catalog = structuredClone(legacy); folderId = ''; noteStates.clear(); renderLibrary();
+      statusLine.textContent = '以前の教材をコピーしました。元データも端末内に保持しています。';window.dispatchEvent(new Event('redsheet-library-change'));
+    } catch {statusLine.textContent = '教材を取り込めませんでした。';}
+  });
+  $('newFolder').after(adopt);
+}
+storage.then(offerLegacyImport).catch(() => {});
 async function saveLibrary() {
   libraryRevision++;
   try {
@@ -646,20 +667,15 @@ async function saveLibrary() {
     await new Promise((resolve,reject) => {
       transaction.oncomplete = resolve;
       transaction.onabort = reject;
-      transaction.objectStore('data').put(catalog,'library');
+      transaction.objectStore('data').put(catalog,'library:' + window.redsheetUser.sub);
     });
   } catch {
     statusLine.textContent += ' このブラウザではノートを次回まで保存できません。';
-  }
+  } finally {window.dispatchEvent(new Event('redsheet-library-change'));}
 }
 renderLibrary();
 
 
-if ('serviceWorker' in navigator) {
- window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {
- statusLine.textContent = 'オフライン機能を準備できませんでした。オンラインで再読み込みしてください。';
- }));
-}
 
 function downloadFile(blob, name) {
  const url = URL.createObjectURL(blob);
@@ -670,12 +686,7 @@ const toolsBar = node('div','library-editor-actions');
 const restoreInput = node('input'); restoreInput.type = 'file'; restoreInput.accept = '.json'; restoreInput.hidden = true;
 toolsBar.append(button('バックアップ保存','library-button secondary',async () => {
  try {
-  const copy = structuredClone(catalog);
-  for (const note of copy.notes) for (const [path, blob] of Object.entries(note.assets || {})) {
-   note.assets[path] = await new Promise((resolve,reject) => {
-    const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob);
-   });
-  }
+  const copy = (await encodeBackup(catalog)).library;
   downloadFile(new Blob([JSON.stringify({format:'redsheet-local-backup',version:1,createdAt:new Date().toISOString(),library:copy})],{type:'application/json'}),'redsheet-backup.json');
  } catch { statusLine.textContent = 'バックアップを保存できませんでした。'; }
 }),button('復元','library-button secondary',() => restoreInput.click()),restoreInput);
@@ -684,7 +695,30 @@ restoreInput.addEventListener('change',async () => {
  const file = restoreInput.files[0]; restoreInput.value = ''; if (!file) return;
  try {
   if (file.size > 50 * 1024 * 1024) throw new Error('50 MB以内のファイルを選んでください。');
-  const data = JSON.parse(await file.text()); const lib = data.library;
+  const data = JSON.parse(await file.text()); const lib = await decodeBackup(data);
+  if (!confirm(`${data.createdAt}\n${lib.notes.length}件のノートで現在の全データを置き換えます。先にバックアップ保存したことを確認してください。`)) return;
+  const db = await storage; if (!db) throw new Error('保存領域を開けません。');
+  await new Promise((resolve,reject) => {
+   const tx = db.transaction('data','readwrite'); tx.oncomplete = resolve; tx.onabort = () => reject(new Error('保存に失敗しました。'));
+   tx.objectStore('data').put(lib,'library:' + window.redsheetUser.sub);
+  });
+  libraryRevision++; catalog = lib; folderId = ''; noteStates.clear(); renderLibrary(); statusLine.textContent = '復元しました。';window.dispatchEvent(new Event('redsheet-library-change'));
+ } catch(error) { statusLine.textContent = '復元できませんでした：' + error.message; }
+});
+
+async function encodeBackup(library) {
+  const copy = structuredClone(library);
+  for (const note of copy.notes) {if(note.kind==='test')note.questions=note.questions.map(q=>({...q,prompt:q.prompt||'',explanation:q.explanation||''}));}
+  for (const note of copy.notes) for (const [path, blob] of Object.entries(note.assets || {})) {
+   note.assets[path] = await new Promise((resolve,reject) => {
+    const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob);
+   });
+  }
+
+ return {format:'redsheet-local-backup',version:1,createdAt:new Date().toISOString(),library:copy};
+}
+async function decodeBackup(data) {
+ const lib = structuredClone(data.library);
   if (data.format !== 'redsheet-local-backup' || data.version !== 1 || !Array.isArray(lib?.folders) || !Array.isArray(lib?.notes)) throw new Error('形式が違います。');
   const ids = new Set(['']);
   for (const f of lib.folders) {
@@ -713,12 +747,6 @@ restoreInput.addEventListener('change',async () => {
    const sources = n.kind === 'learn' ? [n.body || ''] : n.questions.flatMap(q => [q.prompt,q.answer,q.explanation]);
    for (const source of sources) for (const m of source.matchAll(imagePattern)) if (!n.assets?.[(m[2] ?? m[3]).trim()]) throw new Error('参照画像がありません。');
   }
-  if (!confirm(`${data.createdAt}\n${lib.notes.length}件のノートで現在の全データを置き換えます。先にバックアップ保存したことを確認してください。`)) return;
-  const db = await storage; if (!db) throw new Error('保存領域を開けません。');
-  await new Promise((resolve,reject) => {
-   const tx = db.transaction('data','readwrite'); tx.oncomplete = resolve; tx.onabort = () => reject(new Error('保存に失敗しました。'));
-   tx.objectStore('data').put(lib,'library');
-  });
-  libraryRevision++; catalog = lib; folderId = ''; noteStates.clear(); renderLibrary(); statusLine.textContent = '復元しました。';
- } catch(error) { statusLine.textContent = '復元できませんでした：' + error.message; }
-});
+
+ return lib;
+}
