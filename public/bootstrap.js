@@ -50,12 +50,12 @@
     try{
      const permit=await fetch('/api/offline-permit',{cache:'no-store',credentials:'same-origin',redirect:'manual',signal:AbortSignal.timeout(15000)});
      if(permit.status===401||permit.status===403){await window.redsheetOffline.clear();lock('利用許可が失効しました。再ログインしてください。');return;}
-     if(!permit.ok)throw new Error();
+     if(!permit.ok){const detail=await permit.json().catch(()=>({}));throw new Error(detail.error||'オフライン利用許可を取得できません（HTTP '+permit.status+'）。');}
      const record=await permit.json();await window.redsheetOffline.save(record);
      const offlineUser=await window.redsheetOffline.verify(record);
      await prepareShell();
      document.getElementById('accountStatus').textContent=next.email+'｜オフライン利用期限 '+new Date(offlineUser.expiresAt*1000).toLocaleString();
-    }catch{document.getElementById('accountStatus').textContent=next.email+'｜オフライン許可の準備・更新に失敗しました';}
+    }catch(error){document.getElementById('accountStatus').textContent=next.email+'｜オフライン準備に失敗：'+(error.message||'端末への保存を確認してください。');}
    }catch{lock('起動できませんでした。接続を確認して再試行してください。');}
   })().finally(()=>{checking=null;});return checking;
  }

@@ -40,6 +40,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
+        if self.path == '/index.html':
+            self.send_response(308);self.send_header('Location','/');self.end_headers();return
         if self.path == '/simulate-offline':
             server.simulate_offline = True
             self.content('ok', 'text/plain')

@@ -1,5 +1,5 @@
-const CACHE='redsheet-shell-v3';
-const SHELL=['/','/index.html','/app.css','/auth.css','/app.js','/bootstrap.js','/offline.js','/sync.js','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png'];
+const CACHE='redsheet-shell-v4';
+const SHELL=['/','/app.css','/auth.css','/app.js','/bootstrap.js','/offline.js','/sync.js','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png'];
 self.addEventListener('install',()=>self.skipWaiting());
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('redsheet-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('message',event=>{
@@ -11,6 +11,6 @@ self.addEventListener('message',event=>{
 });
 self.addEventListener('fetch',event=>{
  const url=new URL(event.request.url);
- if(event.request.method!=='GET'||url.origin!==self.location.origin||!SHELL.includes(url.pathname))return;
- event.respondWith(fetch(event.request).catch(async()=>await caches.match(url.pathname)||Response.error()));
+ if(event.request.method!=='GET'||url.origin!==self.location.origin||!(SHELL.includes(url.pathname)||url.pathname==='/index.html'))return;
+ event.respondWith(fetch(event.request).catch(async()=>await caches.match(url.pathname==='/index.html'?'/':url.pathname)||Response.error()));
 });
