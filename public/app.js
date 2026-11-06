@@ -191,6 +191,20 @@ function node(tag, className, text) {
 }
 
 const imagePattern = /!\[([^\]\n]*)\]\((?:<([^>\n]+)>|([^()\n]+))\)/g;
+// Split unescaped pipes; optional outer pipes are accepted.
+function tableCells(line) {
+  const cells = []; let cell = '';
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '\\' && line[i + 1] === '|') { cell += '|'; i++; }
+    else if (line[i] === '|') { cells.push(cell.trim()); cell = ''; }
+    else cell += line[i];
+  }
+  cells.push(cell.trim());
+  if (line.trim().startsWith('|')) cells.shift();
+  if (/(?<!\\)\|\s*$/.test(line)) cells.pop();
+  return cells;
+}
+
 function renderBlocks(container, source, redact = false) {
   container.replaceChildren();
   if (!source) return;
@@ -216,7 +230,43 @@ function renderBlocks(container, source, redact = false) {
     parent.append(text.slice(cursor));
   }
   let paragraph = null;
-  for (const line of source.split('\n')) {
+  const lines = source.split('\n');
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    const headers = tableCells(line);
+    const separators = tableCells(lines[index + 1] || '');
+    if (line.includes('|') && headers.length > 0 && headers.length === separators.length &&
+        separators.every(cell => /^:?-{3,}:?$/.test(cell))) {
+      paragraph = null;
+      const wrapper = node('div', 'note-table-scroll');
+      wrapper.tabIndex = 0;
+      wrapper.setAttribute('role', 'region');
+      wrapper.setAttribute('aria-label', '教材の表（横スクロール可能）');
+      const table = node('table', 'note-table');
+      const head = node('thead'), body = node('tbody');
+      function appendRow(values, target, header = false) {
+        const row = node('tr');
+        headers.forEach((_, column) => {
+          const cell = node(header ? 'th' : 'td');
+          if (header) cell.scope = 'col';
+          const marker = separators[column];
+          if (marker.endsWith(':')) cell.style.textAlign = marker.startsWith(':') ? 'center' : 'right';
+          else cell.style.textAlign = 'left';
+          appendLine(cell, values[column] || '');
+          row.append(cell);
+        });
+        target.append(row);
+      }
+      appendRow(headers, head, true);
+      index += 2;
+      while (index < lines.length && lines[index].trim() && lines[index].includes('|')) {
+        appendRow(tableCells(lines[index]), body);
+        index++;
+      }
+      index--;
+      table.append(head, body); wrapper.append(table); container.append(wrapper);
+      continue;
+    }
     const heading = /^#{3,6}[ \t]+(.+)$/.exec(line);
     if (heading) {
       paragraph = null;

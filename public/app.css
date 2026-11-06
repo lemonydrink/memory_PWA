@@ -97,3 +97,9 @@ article h2{font-size:15px;margin-bottom:5px}
 .status{display:none}header{top:env(safe-area-inset-top,0px)}
 .drawer{padding-top:calc(24px + env(safe-area-inset-top,0px))}
 .library{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+
+.note-table-scroll{max-width:100%;overflow-x:auto;margin:16px 0;overscroll-behavior-x:contain}
+.note-table{width:100%;border-collapse:collapse;font-size:14px;line-height:1.7}
+.note-table th,.note-table td{border:1px solid #dbcdd0;padding:10px 12px;min-width:100px;vertical-align:top;overflow-wrap:anywhere}
+.note-table th{font-weight:750}
+.note-table .note-image{max-width:240px}
