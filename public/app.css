@@ -114,3 +114,18 @@ article h2{font-size:15px;margin-bottom:5px}
 
 .sheet-guard{position:absolute;z-index:4;top:var(--sheet-top,calc(100% - 60px));left:0;right:0;height:calc(var(--handle) + 20px);background:transparent;touch-action:none;transition:top .24s cubic-bezier(.2,.7,.3,1)}
 .phone:not([data-mode="learn"]) .sheet-guard{display:none}
+
+.math-inline{font-size:1em}.math-block{display:block;max-width:100%;overflow-x:auto;margin:14px 0;overscroll-behavior-x:contain}
+.math-block .katex-display{margin:.5em 0}.katex{font-size:1.12em}
+.reading .math-red,.reading .math-red *,.reading .term .katex,.reading .term .katex *{color:var(--red)!important}
+.math-normal{color:inherit}
+.term:has(.katex){text-decoration:none;border-bottom:1px solid #000;display:inline-block;padding-bottom:2px}
+.rich-error{display:block;color:#645960;font:13px/1.6 monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.code-block{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}
+.note-diagram{max-width:100%;overflow:auto;margin:18px 0;overscroll-behavior:contain}
+.note-diagram svg{display:block;max-width:100%;height:auto;margin:auto}
+.note-diagram text,.note-diagram tspan{fill:#1b181c!important}
+.reading .note-diagram .diagram-red text,.reading .note-diagram .diagram-red tspan{fill:var(--red)!important}
+.note-diagram .node rect,.note-diagram .node polygon,.note-diagram .node circle,.note-diagram .node path{fill:#fff!important;stroke:#000!important}
+.note-diagram .diagram-underline{stroke:#000!important;stroke-width:1px;fill:none!important}
+.diagram-measure{position:fixed;left:-10000px;top:0;width:640px;pointer-events:none}

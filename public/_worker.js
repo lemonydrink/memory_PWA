@@ -148,7 +148,7 @@ async function asset(request, env, path) {
 async function handle(request, env) {
  const url = new URL(request.url), path = url.pathname;
  // This script only removes old offline caches and must remain reachable without a session.
- if (path === '/sw.js' && request.method === 'GET') return asset(request,env);
+ if (['/sw.js','/vendor-manifest.js'].includes(path) && request.method === 'GET') return asset(request,env);
  if (!configured(env)) return new Response('認証設定が未完了です。READMEのGoogleログイン設定を確認してください。',{status:503,headers:{...noCache,'Content-Type':'text/plain; charset=utf-8'}});
  if (url.origin !== env.APP_ORIGIN) return json({error:'このドメインでは利用できません。'},403);
  if (request.method === 'POST' && request.headers.get('Origin') !== env.APP_ORIGIN) return json({error:'Invalid origin'},403);

@@ -1,7 +1,7 @@
 // Run: gjs tests/parser.js (from repository root)
 const GLib = imports.gi.GLib;
 const source = imports.byteArray.toString(GLib.file_get_contents('public/app.js')[1]);
-const parseLesson = new Function(source.slice(source.indexOf('function parseLesson('),source.indexOf('const maxFileBytes')) + '; return parseLesson;')();
+const parseLesson = new Function(source.slice(source.indexOf('function markdownStructure('),source.indexOf('const maxFileBytes')) + '; return parseLesson;')();
 function assert(condition, message) { if (!condition) throw new Error(message); }
 const notes = parseLesson('# 細胞\n\n## 学習\n\n**細胞**です。\n\n## テスト\n\n### 基本単位は？\n\n細胞');
 assert(notes.length === 2 && notes[0].kind === 'learn' && notes[1].questions[0].answer === '細胞','combined lesson');

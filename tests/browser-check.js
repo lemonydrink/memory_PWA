@@ -2,7 +2,7 @@
  const results = [];
  function check(name, condition) { if (!condition) throw new Error(name); results.push(name); }
  try {
-  await new Promise(resolve => setTimeout(resolve, 500));
+  for(let i=0;i<300&&(!window.redsheetRich||!document.getElementById('accountStatus')||document.body.classList.contains('auth-locked'));i++)await new Promise(r=>setTimeout(r,50));
   check('library rendered', document.querySelectorAll('.library-row').length >= 2);
   const notes = parseLesson('# 確認\n\n## 学習\n\n**細胞**です。\n\n## テスト\n\n### 基本単位は？\n\n細胞');
   check('markdown import', notes.length === 2);
@@ -98,6 +98,32 @@
   check('short resume avoids extra auth requests',resumeRequests===0);
   window.fetch=backgroundFetch;
   check('neutral band hidden in test mode',getComputedStyle(guard).display==='none');
+  openNote({id:'rich-check',kind:'learn',name:'数式と図',body:'',assets:{}});
+  const rich=document.createElement('div');reading.append(rich);
+  renderBlocks(rich,'通常の数式 $\\sum_{k=1}^{n} k$ と **$\\frac{n(n+1)}{2}$**。\n\n$$\n\\sum_{k=1}^{n} k = \\red{\\frac{n(n+1)}{2}}\n$$',true);
+  check('inline and display TeX rendered',rich.querySelectorAll('.katex').length===3&&!!rich.querySelector('.math-block'));
+  check('whole equation red cloze',!!rich.querySelector('.term .katex'));
+  check('partial equation red cloze',!!rich.querySelector('.math-red')&&!rich.querySelector('.katex-error'));
+  renderBlocks(rich,'| 数式 | 意味 |\n| --- | --- |\n| $|x|$ | **絶対値** |',true);
+  check('TeX pipe preserved in table',rich.querySelectorAll('td').length===2&&!!rich.querySelector('td .katex'));
+  renderBlocks(rich,'$\\red{x}$',false);check('test math remains visible',!!rich.querySelector('.math-normal')&&!rich.querySelector('.math-red'));
+  renderBlocks(rich,'$\\notacommand{x}$',true);check('invalid TeX fallback',!!rich.querySelector('.rich-error'));
+  renderBlocks(rich,'```mermaid\nflowchart LR\n A[細胞] --> B[核]:::red\n```',true);
+  for(let i=0;i<200&&!rich.querySelector('svg')&&!rich.querySelector('.rich-error');i++)await new Promise(r=>setTimeout(r,25));
+  check('Mermaid renders SVG',!!rich.querySelector('svg'));
+  check('Mermaid red label and underline',!!rich.querySelector('.diagram-red text')&&!!rich.querySelector('.diagram-underline'));
+  renderBlocks(rich,'```mermaid\nflowchart LR\n A[細胞] --> B[核]:::red\n```',false);
+  for(let i=0;i<200&&!rich.querySelector('svg')&&!rich.querySelector('.rich-error');i++)await new Promise(r=>setTimeout(r,25));
+  check('test diagram labels visible',!!rich.querySelector('svg')&&!rich.querySelector('.diagram-red'));
+  renderBlocks(rich,'```mermaid\n%%{init: {securityLevel: "loose"}}%%\nflowchart LR\nA-->B\n```',true);
+  for(let i=0;i<20&&!rich.querySelector('.rich-error');i++)await new Promise(r=>setTimeout(r,25));
+  check('diagram config injection rejected',!!rich.querySelector('.rich-error'));
+  const protectedLesson=parseLesson('# 図\n\n## 学習\n\n```mermaid\nflowchart LR\n%% comment\n## not a section\n```\n\n## テスト\n\n### 数式は？\n\n$1+1$');
+  check('code headings do not split lesson',protectedLesson.length===2);
+  openNote({id:'math-question',kind:'test',name:'数式問題',questions:[{question:'$\\sum_{k=1}^{n} k$ は？',prompt:'',answer:'$\\frac{n(n+1)}{2}$',explanation:''}]});
+  check('TeX in question heading',!!testQuestion.querySelector('.katex'));
+  showAnswer();check('TeX in test answer',!!document.getElementById('testAnswerValue').querySelector('.katex'));
+  rich.remove();
   const target = document.createElement('div');
   renderBlocks(target, '前文\n\n| 名称 | 数 | 位置 |\n| :--- | ---: | :---: |\n| **核** | 2 | 中央 |\n| a\\|b | 3 | 左 |\n\n後文', true);
   check('table rows', target.querySelectorAll('tbody tr').length === 2);
@@ -163,10 +189,23 @@
   const after=await(await fetch('/test-request-counts')).json();
   check('cached assets use no extra network',(after['/app.js']||0)===(before['/app.js']||0));
   check('valid permit is reused',(after['/api/offline-permit']||0)===(before['/api/offline-permit']||0));
+  const vendorBefore=await(await fetch('/test-request-counts')).json();
+  for(const key of await caches.keys())if(key.startsWith('redsheet-shell-'))await caches.delete(key);
+  await redsheetAuth.refresh();
+  const registration=await navigator.serviceWorker.ready;
+  await new Promise((resolve,reject)=>{const channel=new MessageChannel();channel.port1.onmessage=e=>e.data.ok?resolve():reject(new Error('cache warmup failed'));registration.active.postMessage({type:'CACHE_SHELL'},[channel.port2]);});
+  const vendorAfter=await(await fetch('/test-request-counts')).json();
+  check('vendor cache survives app shell refresh',Object.keys(vendorAfter).filter(p=>p.startsWith('/vendor/')).every(p=>vendorAfter[p]===vendorBefore[p]));
   await fetch('/simulate-offline');
   const frame=document.createElement('iframe');frame.src='/';document.body.append(frame);
   for(let i=0;i<200;i++){await new Promise(r=>setTimeout(r,50));if(frame.contentWindow?.redsheetUser?.offline&&!frame.contentDocument.body.classList.contains('auth-locked'))break;}
   check('cold start offline learning',frame.contentWindow.redsheetUser?.offline&&!frame.contentDocument.body.classList.contains('auth-locked')&&frame.contentDocument.querySelectorAll('.library-row').length>=2);
+  const offlineRich=frame.contentDocument.createElement('div');frame.contentDocument.body.append(offlineRich);
+  frame.contentWindow.redsheetRich.math(offlineRich,'\\frac{1}{2}',false,true);
+  check('TeX renders with network disabled',!!offlineRich.querySelector('.katex'));
+  frame.contentWindow.redsheetRich.diagram(offlineRich,'flowchart LR\nA[Start]-->B[End]',false);
+  for(let i=0;i<200&&!offlineRich.querySelector('svg')&&!offlineRich.querySelector('.rich-error');i++)await new Promise(r=>setTimeout(r,25));
+  check('Mermaid renders with network disabled',!!offlineRich.querySelector('svg'));
   document.body.innerHTML = '<pre id="result">PASS '+results.join(' | ')+'</pre>';
  } catch(e) {document.body.innerHTML='<pre id="result">FAIL '+e.message+'</pre>';}
 })();

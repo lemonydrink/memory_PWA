@@ -1,0 +1,14 @@
+{
+  "katex": {
+    "version": "0.19.1",
+    "url": "https://registry.npmjs.org/katex/-/katex-0.19.1.tgz",
+    "sha512": "8c6f2e2a7b63484726d84a503a1d17b6eae93eeb82f6bdd2ab91cb1ddb05756653dbb13aef6485d7d4048bea1fd3f61e3b2d7994381184abebe7ad78b91ac47c",
+    "license": "MIT"
+  },
+  "mermaid": {
+    "version": "12.3.0",
+    "url": "https://registry.npmjs.org/mermaid/-/mermaid-12.3.0.tgz",
+    "sha512": "e35d774dd5de2c0b0caee27bf4ea452f93bcf8b4c55e142a676eb4ac5ded8149a2340b519b852e99ed3823eeb93d137ac99ebd2787fcad56165bccd193ae5463",
+    "license": "MIT"
+  }
+}

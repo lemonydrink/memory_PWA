@@ -33,7 +33,9 @@ function renderQuestion() {
   const item = questions[questionIndex];
   $('testCount').textContent = testComplete ? questions.length + '問完了' : (questionIndex + 1) + ' / ' + questions.length;
   $('testKicker').textContent = testComplete ? 'おつかれさま' : '問題';
-  testQuestion.textContent = testComplete ? 'テスト完了' : item.question;
+  testQuestion.replaceChildren();
+  if(testComplete)testQuestion.textContent='テスト完了';
+  else window.redsheetRich.inline(testQuestion,item.question,false,imageURLs);
   test.classList.toggle('is-revealed', answerShown);
   testAnswer.hidden = !answerShown;
   revealAnswer.hidden = answerShown || testComplete;
@@ -253,10 +255,11 @@ function node(tag, className, text) {
 const imagePattern = /!\[([^\]\n]*)\]\((?:<([^>\n]+)>|([^()\n]+))\)/g;
 // Split unescaped pipes; optional outer pipes are accepted.
 function tableCells(line) {
-  const cells = []; let cell = '';
+  const cells = []; let cell = '', math = false;
   for (let i = 0; i < line.length; i++) {
-    if (line[i] === '\\' && line[i + 1] === '|') { cell += '|'; i++; }
-    else if (line[i] === '|') { cells.push(cell.trim()); cell = ''; }
+    if(line[i]==='$'&&line[i-1]!=='\\'){math=!math;cell+=line[i];}
+    else if (line[i] === '\\' && line[i + 1] === '|') { cell += math?'\\|':'|'; i++; }
+    else if (line[i] === '|' && !math) { cells.push(cell.trim()); cell = ''; }
     else cell += line[i];
   }
   cells.push(cell.trim());
@@ -268,31 +271,27 @@ function tableCells(line) {
 function renderBlocks(container, source, redact = false) {
   container.replaceChildren();
   if (!source) return;
-  const inline = new RegExp(imagePattern.source + '|\\*\\*([^*\\n]+)\\*\\*', 'g');
-  function appendLine(parent, text) {
-    let cursor = 0;
-    for (const match of text.matchAll(inline)) {
-      parent.append(text.slice(cursor, match.index));
-      if (match[4] !== undefined) {
-        parent.append(node('strong', redact ? 'term' : '', match[4]));
-      } else {
-        const path = (match[2] ?? match[3]).trim();
-        const src = imageURLs.get(path);
-        if (src) {
-          const image = node('img', 'note-image');
-          image.src = src;
-          image.alt = match[1];
-          parent.append(image);
-        }
-      }
-      cursor = match.index + match[0].length;
-    }
-    parent.append(text.slice(cursor));
-  }
+  function appendLine(parent,text) {window.redsheetRich.inline(parent,text,redact,imageURLs);}
   let paragraph = null;
   const lines = source.split('\n');
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
+    const fence=/^\s{0,3}```([a-z]*)\s*$/i.exec(line);
+    if(fence){
+      paragraph=null;const parts=[];let closed=false;
+      while(++index<lines.length){if(/^\s{0,3}```\s*$/.test(lines[index])){closed=true;break;}parts.push(lines[index]);}
+      const content=parts.join('\n');
+      if(fence[1].toLowerCase()==='mermaid'&&closed)window.redsheetRich.diagram(container,content,redact);
+      else {const pre=node('pre','code-block',content);container.append(pre);}
+      continue;
+    }
+    if(/^\s*\$\$/.test(line)){
+      paragraph=null;let content=line.trimStart().slice(2),end=content.indexOf('$$');
+      while(end<0&&index+1<lines.length){content+='\n'+lines[++index];end=content.indexOf('$$');}
+      if(end>=0)window.redsheetRich.math(container,content.slice(0,end),true,redact);
+      else container.append(node('pre','rich-error','数式の閉じる $$ がありません：'+content));
+      continue;
+    }
     const headers = tableCells(line);
     const separators = tableCells(lines[index + 1] || '');
     if (line.includes('|') && headers.length > 0 && headers.length === separators.length &&
@@ -512,11 +511,20 @@ $('newFolder').addEventListener('click', () => editLibraryItem());
 function chooseFile() { window.redsheetShowUpload?.(); }
 $('libraryImport').addEventListener('click', chooseFile);
 
+function markdownStructure(source) {
+  let fence=false,math=false;
+  return source.split('\n').map(line=>{
+    if(/^\s{0,3}```/.test(line)){fence=!fence;return ' '.repeat(line.length);}
+    if(fence)return ' '.repeat(line.length);
+    if(/^\s*\$\$/.test(line)){if((line.match(/\$\$/g)||[]).length===1)math=!math;return ' '.repeat(line.length);}
+    return math?' '.repeat(line.length):line;
+  }).join('\n');
+}
 function parseLesson(source) {
   const text = source.replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').trim();
   const title = /^# +([^\n]+)\n/.exec(text)?.[1].trim();
   if (!title) throw new Error('先頭に「# ノート名」を書いてください。');
-  const sections = [...text.matchAll(/^## +(.+)$/gm)];
+  const sections = [...markdownStructure(text).matchAll(/^## +(.+)$/gm)];
   const names = sections.map(section => section[1].trim());
   if (!names.length || names.some(name => name !== '学習' && name !== 'テスト') || new Set(names).size !== names.length)
     throw new Error('「## 学習」「## テスト」の少なくとも一方を1回ずつ使ってください。');
@@ -528,13 +536,13 @@ function parseLesson(source) {
       notes.push({kind:'learn',name:title,body});
       continue;
     }
-    const parts = [...body.matchAll(/^### +(.+)$/gm)];
+    const parts = [...markdownStructure(body).matchAll(/^### +(.+)$/gm)];
     if (!parts.length || body.slice(0,parts[0].index).trim())
       throw new Error('「テスト」は「### 質問文」から始めてください。');
     const questions = parts.map((part, number) => {
       const question = part[1].trim();
       const detail = body.slice(part.index + part[0].length,parts[number + 1]?.index).trim();
-      const markers = [...detail.matchAll(/^#### +(問題|答え|解説)[ \t]*$/gm)];
+      const markers = [...markdownStructure(detail).matchAll(/^#### +(問題|答え|解説)[ \t]*$/gm)];
       const markerNames = markers.map(marker => marker[1]).join('/');
       const splitPrompt = markerNames === '問題/答え' || markerNames === '問題/答え/解説';
       if (markerNames && !splitPrompt && markerNames !== '解説')

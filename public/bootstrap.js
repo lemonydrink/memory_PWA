@@ -9,7 +9,7 @@
   if(next.offline)expiryTimer=setTimeout(()=>lock('オフライン利用許可の期限が切れました。オンラインで再確認してください。'),Math.max(0,next.expiresAt*1000-Date.now()));
   window.redsheetAuth.online=!next.offline;
   if(!appLoaded){
-   for(const src of ['/app.js','/sync.js'])await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=reject;document.body.append(script);});
+   for(const src of ['/vendor/katex-0.19.1/katex.min.js','/vendor/mermaid-12.3.0/mermaid.min.js','/rich-content.js','/app.js','/sync.js'])await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=reject;document.body.append(script);});
    appLoaded=true;
    const identity=document.createElement('p');identity.id='accountStatus';identity.className='library-status';
    const logout=document.createElement('button');logout.type='button';logout.className='library-button secondary';logout.textContent='ログアウト';logout.addEventListener('click',window.redsheetAuth.logout);
@@ -26,7 +26,7 @@
   const pending=registration.installing||registration.waiting;
   if(pending&&pending.state!=='activated')await new Promise(resolve=>pending.addEventListener('statechange',()=>{if(pending.state==='activated')resolve();}));
   const ready=await navigator.serviceWorker.ready;
-  await new Promise((resolve,reject)=>{const channel=new MessageChannel();const timer=setTimeout(()=>reject(new Error('cache timeout')),20000);channel.port1.onmessage=e=>{clearTimeout(timer);e.data?.ok?resolve():reject(new Error('cache failed'));};ready.active.postMessage({type:'CACHE_SHELL'},[channel.port2]);});
+  await new Promise((resolve,reject)=>{const channel=new MessageChannel();const timer=setTimeout(()=>reject(new Error('cache timeout')),90000);channel.port1.onmessage=e=>{clearTimeout(timer);e.data?.ok?resolve():reject(new Error('cache failed'));};ready.active.postMessage({type:'CACHE_SHELL'},[channel.port2]);});
   shellReady=true;
  }
  async function offline(){
@@ -51,6 +51,7 @@
    try{
     const next=await response.json();if(typeof next.sub!=='string')throw new Error();
     const previous=await window.redsheetOffline.user().catch(()=>null);if(previous&&previous.sub!==next.sub)await window.redsheetOffline.clear();
+    let shellFailure=null;try{await prepareShell();}catch(error){shellFailure=error;}
     await load(next);
     try{
      let offlineUser=previous?.sub===next.sub?previous:null;
@@ -62,6 +63,7 @@
       const record=await permit.json();await window.redsheetOffline.save(record);
       offlineUser=await window.redsheetOffline.verify(record);
      }
+     if(shellFailure)throw shellFailure;
      await prepareShell();
      document.getElementById('accountStatus').textContent=next.email+'｜オフライン利用期限 '+new Date(offlineUser.expiresAt*1000).toLocaleString();
     }catch(error){document.getElementById('accountStatus').textContent=next.email+'｜オフライン準備に失敗：'+(error.message||'端末への保存を確認してください。');}
