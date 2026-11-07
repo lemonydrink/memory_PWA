@@ -21,5 +21,7 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "description": "教材をフォルダで整理し、赤シートと確認問題で学習するオフライン対応ノート",
+  "orientation": "any"
 }

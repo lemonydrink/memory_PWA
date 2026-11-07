@@ -4,6 +4,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#df4d5c">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="赤シート">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <title>赤シートで暗記</title>
@@ -22,6 +24,7 @@
     <div id="libraryEditor"></div>
     <p class="library-status" id="libraryStatus" role="status"></p>
     <div class="library-list" id="libraryList"></div>
+    <details class="device-help" id="deviceHelp"><summary>この端末のホーム画面に追加</summary><p id="installHint"></p><button type="button" class="library-button" id="installApp" hidden>アプリをインストール</button><p id="installStatus" role="status"></p><p>オフラインで使う前に、この端末で教材を読み込み、オフライン利用期限の表示を確認してください。</p></details>
   </div>
   <input id="noteFile" type="file" accept=".md,.zip,text/markdown,application/zip" hidden>
   <div class="reading" id="reading" tabindex="0" aria-label="学習ノートの本文">
@@ -73,6 +76,7 @@
     <button class="current" id="openImport" aria-current="false">ファイルを読み込む</button>
   </aside>
 </main>
+<script src="/device.js" defer></script>
 <script src="/offline.js" defer></script>
 <script src="/bootstrap.js" defer></script>
 </html>

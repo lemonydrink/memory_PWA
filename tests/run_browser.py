@@ -17,9 +17,7 @@ import tempfile
 import threading
 
 ROOT = Path(__file__).resolve().parents[1]
-MODE = sys.argv[1] if len(sys.argv) > 1 else 'auth'
-if MODE not in ('auth', 'app', 'memory'):
-    raise SystemExit('Choose auth, app or memory')
+MODE = 'auth'
 result = threading.Event()
 messages = []
 
@@ -37,10 +35,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Content-Length', str(len(data)))
         self.send_header('Cache-Control', 'no-store')
         self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
     def do_GET(self):
         server.request_counts[self.path]=server.request_counts.get(self.path,0)+1
+        if self.path == '/test-slow-body':
+            self.send_response(200)
+            self.send_header('Content-Type','text/plain')
+            self.send_header('Content-Length','2')
+            self.end_headers()
+            self.wfile.write(b'a');self.wfile.flush();time.sleep(.3)
+            try:self.wfile.write(b'b')
+            except (BrokenPipeError,ConnectionResetError):pass
+            return
         if self.path == '/test-request-counts':
             self.content(json.dumps(server.request_counts),'application/json');return
         if self.path == '/index.html':
@@ -100,33 +110,47 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.content('ok', 'text/plain')
         result.set()
 
-chrome = os.environ.get('CHROME') or shutil.which('google-chrome') or shutil.which('chromium')
-# Prefer the installed binary over desktop launch wrappers.
-if Path('/opt/google/chrome/chrome').exists():
-    chrome = '/opt/google/chrome/chrome'
-if not chrome:
-    raise SystemExit('Chrome/Chromium is required')
-server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
-server.request_counts={}
-server.cloud_backup=None
-server.cloud_etag=None
-def b64(data):
-    return base64.urlsafe_b64encode(data).decode().rstrip('=')
-private = ec.generate_private_key(ec.SECP256R1())
-numbers = private.public_key().public_numbers()
-now = int(time.time())
-payload = b64(json.dumps({'sub':'fixture-account','email':'fixture@example.com','origin':f'http://127.0.0.1:{server.server_port}','iat':now,'exp':now+259200}).encode())
-r, s = utils.decode_dss_signature(private.sign(payload.encode(), ec.ECDSA(hashes.SHA256())))
-permit = {'token':payload+'.'+b64(r.to_bytes(32,'big')+s.to_bytes(32,'big')),'key':{'kty':'EC','crv':'P-256','x':b64(numbers.x.to_bytes(32,'big')),'y':b64(numbers.y.to_bytes(32,'big')),'ext':True,'key_ops':['verify']}}
-threading.Thread(target=server.serve_forever, daemon=True).start()
-with tempfile.TemporaryDirectory(prefix='redsheet-test-') as profile:
-    process = subprocess.Popen([chrome, '--headless', '--no-sandbox', '--disable-gpu', '--no-proxy-server', *(['--js-flags=--expose-gc','--enable-precise-memory-info'] if MODE=='memory' else []), '--user-data-dir='+profile, f'http://127.0.0.1:{server.server_port}/check.html'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    try:
-        if not result.wait(90 if MODE == 'memory' else 50):
-            messages.append('FAIL: browser test timed out')
-    finally:
-        process.terminate()
-        process.wait(timeout=5)
-        server.shutdown()
-print('\n'.join(messages))
-raise SystemExit(0 if messages and all(m.startswith('PASS') for m in messages) else 1)
+def start_server(mode='app'):
+    global MODE, server, permit
+    MODE = mode
+    server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    server.request_counts={}
+    server.cloud_backup=None
+    server.cloud_etag=None
+    def b64(data):
+        return base64.urlsafe_b64encode(data).decode().rstrip('=')
+    private = ec.generate_private_key(ec.SECP256R1())
+    numbers = private.public_key().public_numbers()
+    now = int(time.time())
+    payload = b64(json.dumps({'sub':'fixture-account','email':'fixture@example.com','origin':f'http://127.0.0.1:{server.server_port}','iat':now,'exp':now+259200}).encode())
+    r, s = utils.decode_dss_signature(private.sign(payload.encode(), ec.ECDSA(hashes.SHA256())))
+    permit = {'token':payload+'.'+b64(r.to_bytes(32,'big')+s.to_bytes(32,'big')),'key':{'kty':'EC','crv':'P-256','x':b64(numbers.x.to_bytes(32,'big')),'y':b64(numbers.y.to_bytes(32,'big')),'ext':True,'key_ops':['verify']}}
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+def main():
+    global MODE
+    MODE = sys.argv[1] if len(sys.argv) > 1 else 'auth'
+    if MODE not in ('auth', 'app', 'memory'):
+        raise SystemExit('Choose auth, app or memory')
+    chrome = os.environ.get('CHROME') or shutil.which('google-chrome') or shutil.which('chromium')
+    # Prefer the installed binary over desktop launch wrappers.
+    if Path('/opt/google/chrome/chrome').exists():
+        chrome = '/opt/google/chrome/chrome'
+    if not chrome:
+        raise SystemExit('Chrome/Chromium is required')
+    start_server(MODE)
+    with tempfile.TemporaryDirectory(prefix='redsheet-test-') as profile:
+        process = subprocess.Popen([chrome, '--headless', '--no-sandbox', '--disable-gpu', '--no-proxy-server', *(['--js-flags=--expose-gc','--enable-precise-memory-info'] if MODE=='memory' else []), '--user-data-dir='+profile, f'http://127.0.0.1:{server.server_port}/check.html'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            if not result.wait(90 if MODE == 'memory' else 50):
+                messages.append('FAIL: browser test timed out')
+        finally:
+            process.terminate()
+            process.wait(timeout=5)
+            server.shutdown()
+    print('\n'.join(messages))
+    raise SystemExit(0 if messages and all(m.startswith('PASS') for m in messages) else 1)
+
+if __name__ == '__main__':
+    main()

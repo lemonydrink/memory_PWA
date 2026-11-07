@@ -1,1 +1,4 @@
 body{margin:0;background:#faf5f6;color:#281c21;font:16px/1.7 -apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif}.auth-card{max-width:420px;margin:12vh auto;padding:28px;text-align:center}.auth-card img{border-radius:18px}.auth-card h1{font-size:24px}.auth-button{display:block;background:#982c3c;color:white;border-radius:12px;padding:14px;text-decoration:none}.auth-help{font-size:13px;color:#645960}#loginStatus{color:#982c3c}#authGate{position:fixed;inset:0;z-index:9999;background:#faf5f6;overflow:auto}body.auth-locked #phone{visibility:hidden}#authGate[hidden]{display:none}
+
+.auth-card{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px));padding-bottom:max(24px,env(safe-area-inset-bottom,0px));overflow-wrap:anywhere}
+@media(max-height:500px){.auth-card{margin:0 auto;padding-top:16px}.auth-card h1{margin:8px 0}}

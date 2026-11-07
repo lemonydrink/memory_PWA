@@ -47,11 +47,11 @@
   lastAttemptAt=Date.now();
   checking=(async()=>{
    if(localStorage.getItem('redsheet-logout-pending')){
-    try{const r=await fetch('/auth/logout',{method:'POST',credentials:'same-origin',signal:AbortSignal.timeout(15000)});if(!r.ok)throw new Error();localStorage.removeItem('redsheet-logout-pending');location.replace('/login');}catch{lock('ログアウト済みです。オンラインに接続してログインしてください。');}return;
+    try{const r=await window.redsheetDevice.fetch('/auth/logout',{method:'POST',credentials:'same-origin'});if(!r.ok)throw new Error();localStorage.removeItem('redsheet-logout-pending');location.replace('/login');}catch{lock('ログアウト済みです。オンラインに接続してログインしてください。');}return;
    }
    if(!navigator.onLine){try{await offline();}catch(error){lock(error.message);}return;}
    let response;
-   try{response=await fetch('/api/me',{cache:'no-store',credentials:'same-origin',redirect:'manual',signal:AbortSignal.timeout(15000)});}
+   try{response=await window.redsheetDevice.fetch('/api/me',{cache:'no-store',credentials:'same-origin',redirect:'manual'});}
    catch{try{await offline();}catch(error){lock(error.message);}return;}
    if(localStorage.getItem('redsheet-logout-pending'))return;
    if(response.status===401||response.status===403){lock('利用許可が失効しました。再ログインしてください。');await window.redsheetOffline.clear();location.replace('/login');return;}
@@ -67,7 +67,7 @@
      let offlineUser=previous?.sub===next.sub?previous:null;
      // Reuse valid permits; renew once fewer than 24 hours remain.
      if(!offlineUser||offlineUser.expiresAt*1000-Date.now()<86400000){
-      const permit=await fetch('/api/offline-permit',{cache:'no-store',credentials:'same-origin',redirect:'manual',signal:AbortSignal.timeout(15000)});
+      const permit=await window.redsheetDevice.fetch('/api/offline-permit',{cache:'no-store',credentials:'same-origin',redirect:'manual'});
       if(permit.status===401||permit.status===403){await window.redsheetOffline.clear();lock('利用許可が失効しました。再ログインしてください。');return;}
       if(!permit.ok){const detail=await permit.json().catch(()=>({}));throw new Error(detail.error||'オフライン利用許可を取得できません（HTTP '+permit.status+'）。');}
       const record=await permit.json();await window.redsheetOffline.save(record);

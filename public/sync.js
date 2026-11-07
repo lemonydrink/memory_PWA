@@ -22,7 +22,7 @@
  async function writeMeta(meta){const db=await storage;return new Promise((resolve,reject)=>{const tx=db.transaction('data','readwrite');tx.objectStore('data').put(meta,key('sync:'));tx.oncomplete=resolve;tx.onabort=reject;});}
  async function digest(library){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(library)));return Array.from(new Uint8Array(bytes),n=>n.toString(16).padStart(2,'0')).join('');}
  async function api(options={}){
-  const response=await fetch('/api/sync',{credentials:'same-origin',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(60000),...options});
+  const response=await window.redsheetDevice.fetch('/api/sync',{credentials:'same-origin',cache:'no-store',redirect:'error',...options},60000);
   if(response.status===401||response.status===403){await window.redsheetOffline.clear();await window.redsheetAuth.refresh();throw new Error('ログインを確認してください。');}
   if(!response.ok){const error=await response.json().catch(()=>({}));throw new Error(error.error||'クラウドに接続できませんでした。');}
   return response;

@@ -1,6 +1,6 @@
 importScripts('/vendor-manifest.js');
-const CACHE='redsheet-shell-v16';
-const SHELL=['/','/app.css','/auth.css','/app.js','/bootstrap.js','/offline.js','/sync.js','/rich-content.js','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png'];
+const CACHE='redsheet-shell-v17';
+const SHELL=['/','/app.css','/auth.css','/app.js','/bootstrap.js','/device.js','/offline.js','/sync.js','/rich-content.js','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png'];
 self.addEventListener('install',()=>self.skipWaiting());
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('redsheet-')&&k!==CACHE&&k!==REDSHEET_VENDOR.cache).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('message',event=>{

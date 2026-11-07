@@ -9,3 +9,5 @@ node_modules/
 .offline-private-key.json
 __pycache__/
 /work/
+
+.venv*/

@@ -143,3 +143,24 @@ article h2{font-size:15px;margin-bottom:5px}
 .folder-picker-create{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.folder-picker-create input{width:100%;min-width:0;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit}
 .folder-picker:disabled{opacity:.6}.folder-picker button:disabled{cursor:wait}
 .library-editor-actions{flex-wrap:wrap}
+
+/* Tablets, split view, landscape phones, and software keyboards. */
+body{min-height:100vh;min-height:var(--app-height,100dvh)}
+.phone{width:min(1100px,100%);height:100vh;height:var(--app-height,100dvh)}
+.home{display:none}
+.menu-button{left:max(12px,env(safe-area-inset-left,0px))}
+.library{padding-left:max(clamp(16px,4vw,40px),env(safe-area-inset-left,0px));padding-right:max(clamp(16px,4vw,40px),env(safe-area-inset-right,0px))}
+article{max-width:960px;margin-inline:auto;padding-left:max(clamp(20px,4vw,48px),env(safe-area-inset-left,0px));padding-right:max(clamp(20px,4vw,48px),env(safe-area-inset-right,0px))}
+.test{padding-left:max(clamp(16px,4vw,40px),env(safe-area-inset-left,0px));padding-right:max(clamp(16px,4vw,40px),env(safe-area-inset-right,0px));padding-bottom:max(16px,env(safe-area-inset-bottom,0px))}
+.test-body{width:100%;max-width:900px;margin-inline:auto}.test-controls{flex-wrap:wrap}
+.drawer{width:min(360px,88%);overflow-y:auto;padding-left:max(24px,env(safe-area-inset-left,0px));padding-bottom:max(24px,env(safe-area-inset-bottom,0px))}
+.drawer .close{top:calc(16px + env(safe-area-inset-top,0px))}
+.library-heading{flex-wrap:wrap}.library-heading h1{overflow-wrap:anywhere}
+.library-editor input,.folder-picker-create input{font-size:16px}
+.device-help{margin-top:24px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;color:var(--muted)}
+.device-help summary{min-height:44px;padding:10px 0;cursor:pointer;color:#8d2939;font-weight:700}
+.device-help p{line-height:1.7;overflow-wrap:anywhere}.device-help button{min-height:44px}
+@media (pointer:coarse){.library-button,.library-path button{min-height:44px}}
+@media (max-height:500px){.test-progress{padding:8px 0}.test-prompt{padding:10px 0}.test-controls{padding-top:6px}.test-answer{padding:12px}.test-question{font-size:23px}}
+
+.reading{touch-action:auto}

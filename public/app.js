@@ -211,9 +211,11 @@ document.addEventListener('keydown', event => {
   }
 });
 phone.addEventListener('pointerdown', event => {
-  if (event.button !== 0 || event.target.closest('button')) return;
+  if (event.isPrimary===false){swipe=null;return;}
+  if (event.button !== 0 || event.target.closest('button,input,select,textarea,a,.note-table-scroll,.note-diagram,.math-block')) return;
   const opened = !drawer.inert;
-  const activeContent = {library,test,learn:reading}[phone.dataset.mode];
+  const activeContent = {library,test,learn:reading,upload:$('uploadView')}[phone.dataset.mode];
+  if(!activeContent)return;
   if (opened ? !drawer.contains(event.target) : event.clientX - phone.getBoundingClientRect().left > 45 || !activeContent.contains(event.target)) return;
   swipe = { id:event.pointerId, x:event.clientX, y:event.clientY, opened };
 });
