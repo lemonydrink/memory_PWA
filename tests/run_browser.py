@@ -1,4 +1,4 @@
-"""Run isolated browser tests: python3 tests/run_browser.py auth|app
+"""Run isolated browser tests: python3 tests/run_browser.py auth|app|memory
 Requires Chrome/Chromium. Uses fake Google/D1 fixtures, never real credentials.
 """
 import base64
@@ -18,8 +18,8 @@ import threading
 
 ROOT = Path(__file__).resolve().parents[1]
 MODE = sys.argv[1] if len(sys.argv) > 1 else 'auth'
-if MODE not in ('auth', 'app'):
-    raise SystemExit('Choose auth or app')
+if MODE not in ('auth', 'app', 'memory'):
+    raise SystemExit('Choose auth, app or memory')
 result = threading.Event()
 messages = []
 
@@ -62,11 +62,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif self.path == '/test-auth.js':
             self.content((ROOT / 'tests/auth-check.js').read_text(), 'text/javascript')
         elif self.path == '/test-timers.js':
+            if MODE == 'memory':
+                self.content((ROOT / 'tests/memory-probes.js').read_text(), 'text/javascript');return
             self.content("window.__testIntervals=[];const nativeInterval=window.setInterval;window.setInterval=(callback,delay,...args)=>{window.__testIntervals.push(delay);return nativeInterval(callback,delay,...args);};", 'text/javascript')
         elif self.path == '/test-app.js':
-            script = (ROOT / 'tests/browser-check.js').read_text()
+            script = (ROOT / ('tests/memory-check.js' if MODE == 'memory' else 'tests/browser-check.js')).read_text()
             script = script.replace("document.body.innerHTML = '<pre id=\"result\">PASS '+results.join(' | ')+'</pre>';", "fetch('/result', {method:'POST',body:'PASS APP: '+results.join(' | ')});")
             script = script.replace("document.body.innerHTML='<pre id=\"result\">FAIL '+e.message+'</pre>';", "fetch('/result', {method:'POST',body:'FAIL APP: '+e.message});")
+            script = script.replace("document.body.innerHTML='<pre id=\"result\">FAIL '+e.message+' | '+results.join(' | ')+'</pre>';", "fetch('/result', {method:'POST',body:'FAIL APP: '+e.message+' | '+results.join(' | ')});")
             self.content(script, 'text/javascript')
         elif self.path == '/api/sync':
             if server.cloud_backup is None:
@@ -117,9 +120,9 @@ r, s = utils.decode_dss_signature(private.sign(payload.encode(), ec.ECDSA(hashes
 permit = {'token':payload+'.'+b64(r.to_bytes(32,'big')+s.to_bytes(32,'big')),'key':{'kty':'EC','crv':'P-256','x':b64(numbers.x.to_bytes(32,'big')),'y':b64(numbers.y.to_bytes(32,'big')),'ext':True,'key_ops':['verify']}}
 threading.Thread(target=server.serve_forever, daemon=True).start()
 with tempfile.TemporaryDirectory(prefix='redsheet-test-') as profile:
-    process = subprocess.Popen([chrome, '--headless', '--no-sandbox', '--disable-gpu', '--no-proxy-server', '--user-data-dir='+profile, f'http://127.0.0.1:{server.server_port}/check.html'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    process = subprocess.Popen([chrome, '--headless', '--no-sandbox', '--disable-gpu', '--no-proxy-server', *(['--js-flags=--expose-gc','--enable-precise-memory-info'] if MODE=='memory' else []), '--user-data-dir='+profile, f'http://127.0.0.1:{server.server_port}/check.html'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
-        if not result.wait(50):
+        if not result.wait(90 if MODE == 'memory' else 50):
             messages.append('FAIL: browser test timed out')
     finally:
         process.terminate()

@@ -403,6 +403,7 @@ function updateMode(mode, title) {
   test.hidden = mode !== 'test';
   menuItems[0].setAttribute('aria-current',String(mode === 'library'));
   $('modeTitle').textContent = title;
+  window.dispatchEvent(new Event('redsheet-view-change'));
 }
 function leaveNote() {
   testViewRevision++;
@@ -413,6 +414,9 @@ function leaveNote() {
   });
   for (const url of imageURLs.values()) URL.revokeObjectURL(url);
   imageURLs.clear();
+  reading.replaceChildren();
+  for(const id of ['testQuestion','testPromptMedia','testAnswerValue','testExplanationValue'])$(id).replaceChildren();
+  questions=sampleQuestions;
   activeNote = null;
 }
 function showLibrary() {

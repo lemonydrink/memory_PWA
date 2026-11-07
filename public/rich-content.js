@@ -1,6 +1,5 @@
 (() => {
- const KATEX='/vendor/katex-0.19.1/';
- let diagramId=0;
+ let diagramId=0,diagramQueue=Promise.resolve();
  mermaid.initialize({startOnLoad:false,securityLevel:'strict',htmlLabels:false,flowchart:{htmlLabels:false},fontFamily:'sans-serif',theme:'base',themeVariables:{primaryColor:'#ffffff',primaryTextColor:'#1b181c',primaryBorderColor:'#000000',lineColor:'#000000',secondaryColor:'#ffffff',tertiaryColor:'#ffffff'},maxTextSize:30000,maxEdges:200,suppressErrorRendering:true});
  function error(parent,message,source){const block=document.createElement('span');block.className='rich-error';block.textContent=message+'：'+source;parent.append(block);}
  function math(parent,source,display,redact){
@@ -34,7 +33,8 @@
  function diagram(parent,source,redact){
   const host=document.createElement('div');host.className='note-diagram';host.tabIndex=0;host.setAttribute('role','img');host.setAttribute('aria-label','教材の図');parent.append(host);
   host.textContent='図を表示しています…';
-  queueMicrotask(async()=>{
+  // Serialize before creating measurement DOM; abandoned views skip queued work.
+  diagramQueue=diagramQueue.then(async()=>{
    if(!host.isConnected)return;
    const measure=document.createElement('div');measure.className='diagram-measure';document.body.append(measure);
    try{

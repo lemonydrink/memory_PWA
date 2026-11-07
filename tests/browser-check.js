@@ -187,9 +187,13 @@
   document.getElementById('cloudSync').click();
   const choices=()=>document.querySelector('#uploadView .library-editor');
   await until(()=>!choices().hidden);
+  choices().querySelectorAll('button')[choices().querySelectorAll('button').length-1].click();
+  check('sync cancel releases snapshot handlers',choices().hidden&&choices().childElementCount===0);
+  document.getElementById('cloudSync').click();await until(()=>!choices().hidden);
   choices().querySelector('button').click();
   await until(()=>document.getElementById('cloudSyncStatus').textContent.startsWith('クラウドへ保存済み'));
   check('sync UI uploads snapshot',true);
+  check('completed sync releases snapshot handlers',choices().hidden&&choices().childElementCount===0);
   const priorCount=catalog.notes.length;catalog.notes=[];await saveLibrary();
   await fetch('/simulate-remote-update');document.getElementById('cloudSync').click();
   await until(()=>!choices().hidden);
@@ -197,6 +201,7 @@
   choices().querySelectorAll('button')[1].click();
   await until(()=>document.getElementById('cloudSyncStatus').textContent.startsWith('クラウドから復元済み'));
   check('sync conflict restore',catalog.notes.length===priorCount);
+  check('restore releases snapshot handlers',choices().hidden&&choices().childElementCount===0);
   check('cloud image roundtrip',catalog.notes.find(n=>n.id==='cloud-image').assets['assets/test.png'] instanceof Blob);
   const recovery=await new Promise(resolve=>{const r=db.transaction('data').objectStore('data').get('recovery:'+redsheetUser.sub);r.onsuccess=()=>resolve(r.result);});
   check('local recovery preserved',recovery.library.notes.length===0);

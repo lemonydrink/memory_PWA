@@ -7,6 +7,7 @@
  const sync=button('クラウドと同期','library-button',runSync);sync.id='cloudSync';
  const status=node('p','library-status','同期はボタンを押したときだけ行います。');status.id='cloudSyncStatus';status.setAttribute('role','status');
  const actions=node('div','library-editor');actions.hidden=true;
+ function clearOptions(){actions.hidden=true;actions.replaceChildren();}
  const recovery=button('同期前の端末データへ戻す','library-button secondary',async()=>{
   try{const saved=await read('recovery:');if(!saved)throw new Error('退避データはありません。');if(!confirm('同期前に退避した端末データへ戻しますか？'))return;await apply(saved.library,null,false);status.textContent='同期前のデータへ戻しました。クラウドにはまだ反映していません。';}catch(e){status.textContent=e.message;}
  });
@@ -31,10 +32,11 @@
   status.textContent=message;actions.replaceChildren();actions.hidden=false;
   if(upload)actions.append(button('端末の教材をクラウドへ保存','library-button',()=>perform(upload)));
   if(download)actions.append(button('クラウドの教材を端末へ復元','library-button secondary',()=>perform(download)));
-  actions.append(button('キャンセル','library-button secondary',()=>{actions.hidden=true;status.textContent='同期をキャンセルしました。';}));
+  actions.append(button('キャンセル','library-button secondary',()=>{clearOptions();status.textContent='同期をキャンセルしました。';}));
  }
  async function perform(action){if(busy)return;busy=true;window.redsheetSyncBusy=true;sync.disabled=true;file.disabled=true;back.disabled=true;menuButton.disabled=true;recovery.disabled=true;for(const b of actions.querySelectorAll('button'))b.disabled=true;
-  try{await action();actions.hidden=true;}catch(e){status.textContent='同期できませんでした：'+e.message;actions.hidden=true;}finally{busy=false;window.redsheetSyncBusy=false;sync.disabled=!window.redsheetAuth.online;file.disabled=false;back.disabled=false;menuButton.disabled=false;recovery.disabled=false;}
+  clearOptions();
+  try{await action();}catch(e){status.textContent='同期できませんでした：'+e.message;}finally{busy=false;window.redsheetSyncBusy=false;sync.disabled=!window.redsheetAuth.online;file.disabled=false;back.disabled=false;menuButton.disabled=false;recovery.disabled=false;}
  }
  async function runSync(){
   if(busy)return;
@@ -63,10 +65,11 @@
    // Choose explicitly for first sync, remote changes, and conflicts; never push an empty new device silently.
    if(meta?.etag===etag&&etag&&meta.hash!==localHash){await upload();return;}
    // Defer choices until perform() has released its busy state.
-   setTimeout(()=>options(remoteLib?`端末 ${local.library.notes.length}件 ／ クラウド ${remoteLib.notes.length}件（${new Date(remote.createdAt).toLocaleString()}）。内容が異なります。使う方を選んでください。`:'クラウドには教材がありません。端末の教材を保存できます。',upload,remoteLib?download:null),0);
+   setTimeout(()=>{if(libraryRevision!==revision||phone.dataset.mode!=='upload')return;options(remoteLib?`端末 ${local.library.notes.length}件 ／ クラウド ${remoteLib.notes.length}件（${new Date(remote.createdAt).toLocaleString()}）。内容が異なります。使う方を選んでください。`:'クラウドには教材がありません。端末の教材を保存できます。',upload,remoteLib?download:null);},0);
   });
  }
  window.redsheetShowUpload=async()=>{leaveNote();updateMode('upload','教材のアップロード');menu(false);hint.textContent='保存先：'+(folderPath(folderId).map(f=>f.name).join(' › ')||'すべて')+'｜Markdown・画像付きZIPを読み込めます。';try{const meta=await read('sync:');const localHash=await digest((await encodeBackup(catalog)).library);status.textContent=meta?((meta.hash===localHash?'前回同期から端末の変更なし｜':'端末に未同期の変更あり｜')+new Date(meta.at).toLocaleString()):'未同期です。「クラウドと同期」で保存・復元を選べます。';}catch(e){status.textContent=e.message;}if(!window.redsheetAuth.online)status.textContent='オフライン利用中です。同期はオンラインで行ってください。';};
- window.addEventListener('redsheet-library-change',()=>{status.textContent='端末に変更があります。「クラウドと同期」で保存してください。';actions.hidden=true;});
- window.addEventListener('redsheet-auth-change',()=>{sync.disabled=busy||!window.redsheetAuth.online;if(!window.redsheetAuth.online)status.textContent='オフライン利用中です。教材の読み込みと学習は可能です。同期はオンラインで行ってください。';});
+ window.addEventListener('redsheet-library-change',()=>{status.textContent='端末に変更があります。「クラウドと同期」で保存してください。';clearOptions();});
+ window.addEventListener('redsheet-view-change',()=>{if(phone.dataset.mode!=='upload')clearOptions();});
+ window.addEventListener('redsheet-auth-change',()=>{if(!window.redsheetAuth.online)clearOptions();sync.disabled=busy||!window.redsheetAuth.online;if(!window.redsheetAuth.online)status.textContent='オフライン利用中です。教材の読み込みと学習は可能です。同期はオンラインで行ってください。';});
 })();
