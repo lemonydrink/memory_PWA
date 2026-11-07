@@ -6,7 +6,8 @@ const test = $('test'), testBody = $('testBody'), testQuestion = $('testQuestion
 const testAnswer = $('testAnswer'), revealAnswer = $('revealAnswer'), nextQuestion = $('nextQuestion');
 const library = $('library'), noteFile = $('noteFile');
 const menuItems = [$('openLibrary'), $('openImport')];
-let sheetStage = 3, raised = false, drag = null, suppressClick = false, swipe = null;
+const SHEET_STAGE_COUNT = 5, SHEET_LAST_STAGE = SHEET_STAGE_COUNT - 1;
+let sheetStage = SHEET_LAST_STAGE, raised = false, drag = null, suppressClick = false, swipe = null;
 let questionIndex = 0, answerShown = false, testComplete = false;
 let answerSwipe = null, testTransitioning = false, testViewRevision = 0;
 
@@ -131,22 +132,22 @@ function sheetStops() {
   const high = Math.min(phone.clientHeight - 64, header.offsetTop + header.offsetHeight + 12);
   const safeBottom = parseFloat(getComputedStyle(phone).getPropertyValue('--safe-bottom')) || 0;
   const low = Math.max(high, phone.clientHeight - 60 - safeBottom);
-  return Array.from({length:4}, (_,index) => high + (low-high)*index/3);
+  return Array.from({length:SHEET_STAGE_COUNT}, (_,index) => high + (low-high)*index/SHEET_LAST_STAGE);
 }
 function setSheetStage(value) {
-  sheetStage = Math.max(0,Math.min(3,Math.round(value)));
-  raised = sheetStage < 3;
+  sheetStage = Math.max(0,Math.min(SHEET_LAST_STAGE,Math.round(value)));
+  raised = sheetStage < SHEET_LAST_STAGE;
   phone.classList.toggle('raised',raised);
   phone.style.setProperty('--sheet-top',sheetStops()[sheetStage]+'px');
   grip.setAttribute('role','slider');
   grip.setAttribute('aria-label','赤シートの位置');
   grip.removeAttribute('aria-pressed');
-  grip.setAttribute('aria-valuemin','0');grip.setAttribute('aria-valuemax','3');
-  grip.setAttribute('aria-valuenow',String(3-sheetStage));
-  grip.setAttribute('aria-valuetext',`下から${4-sheetStage}段階目（全4段階）`);
+  grip.setAttribute('aria-valuemin','0');grip.setAttribute('aria-valuemax',String(SHEET_LAST_STAGE));
+  grip.setAttribute('aria-valuenow',String(SHEET_LAST_STAGE-sheetStage));
+  grip.setAttribute('aria-valuetext',`下から${SHEET_STAGE_COUNT-sheetStage}段階目（全${SHEET_STAGE_COUNT}段階）`);
   grip.setAttribute('aria-orientation','vertical');
 }
-function setRaised(value) { setSheetStage(value ? 0 : 3); }
+function setRaised(value) { setSheetStage(value ? 0 : SHEET_LAST_STAGE); }
 grip.addEventListener('pointerdown',event => {
   if(event.button!==0 || event.isPrimary===false || drag)return;
   suppressClick=false;
@@ -159,7 +160,7 @@ grip.addEventListener('pointermove',event => {
   const dy=event.clientY-drag.y;
   if(Math.abs(dy)<5&&!drag.moved)return;
   drag.moved=true;phone.classList.add('dragging');
-  phone.style.setProperty('--drag-top',Math.max(drag.stops[0],Math.min(drag.stops[3],drag.start+dy))+'px');
+  phone.style.setProperty('--drag-top',Math.max(drag.stops[0],Math.min(drag.stops[SHEET_LAST_STAGE],drag.start+dy))+'px');
 });
 function finishGrip(event) {
   if(!drag || event.pointerId!==drag.id)return;
@@ -177,9 +178,9 @@ function finishGrip(event) {
 grip.addEventListener('pointerup',finishGrip);
 grip.addEventListener('pointercancel',finishGrip);
 grip.addEventListener('lostpointercapture',event=>{if(drag?.id===event.pointerId)finishGrip(event);});
-grip.addEventListener('click',event=>{if(event.detail===0||!suppressClick)setSheetStage(sheetStage===0?3:sheetStage-1);});
+grip.addEventListener('click',event=>{if(event.detail===0||!suppressClick)setSheetStage(sheetStage===0?SHEET_LAST_STAGE:sheetStage-1);});
 grip.addEventListener('keydown',event=>{
-  const stage={ArrowUp:sheetStage-1,ArrowDown:sheetStage+1,Home:0,End:3}[event.key];
+  const stage={ArrowUp:sheetStage-1,ArrowDown:sheetStage+1,Home:0,End:SHEET_LAST_STAGE}[event.key];
   if(stage===undefined)return;event.preventDefault();setSheetStage(stage);
 });
 new ResizeObserver(()=>{
@@ -489,7 +490,7 @@ function openNote(note) {
       article.replaceChildren(article.querySelector('h1'),article.querySelector('.intro'),body,node('p','end','ノートの終わり'));
     }
     reading.replaceChildren(article);
-    setSheetStage(state?.sheetStage ?? (state?.raised ? 0 : 3));
+    setSheetStage(state?.sheetStage ?? (state?.raised ? 0 : SHEET_LAST_STAGE));
     reading.scrollTop = state?.scroll ?? 0;
   } else {
     $('testNoteName').textContent = note.name;

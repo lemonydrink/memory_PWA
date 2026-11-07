@@ -9,9 +9,10 @@
   check('markdown import', notes.length === 2);
   openNote({...notes[0],id:'check',assets:{}});
   check('red terms', reading.querySelector('.term').textContent === '細胞');
+  check('sheet starts at lowest fifth stop',sheetStage===4&&grip.getAttribute('aria-valuemax')==='4'&&grip.getAttribute('aria-valuetext').includes('全5段階'));
   setRaised(true); check('sheet raised', phone.classList.contains('raised'));
-  const stops=sheetStops();check('four sheet stops',stops.length===4&&stops.every((v,i)=>i===0||v>stops[i-1]));
-  check('extended sheet range',stops[0]<150&&stops[3]>phone.clientHeight-100);
+  const stops=sheetStops();check('five sheet stops',stops.length===5&&stops.every((v,i)=>i===0||v>stops[i-1]));
+  check('extended sheet range',stops[0]<150&&stops[4]>phone.clientHeight-100);
   const gripWidth=grip.getBoundingClientRect().width;
   check('wider but bounded grip target',gripWidth>146&&gripWidth<phone.clientWidth*.85);
   grip.style.transition='none';
@@ -23,15 +24,18 @@
    grip.dispatchEvent(new PointerEvent(cancel?'pointercancel':'pointerup',{pointerId:51,clientY:end}));
    if(!cancel)grip.dispatchEvent(new MouseEvent('click',{detail:1}));
   }
-  setSheetStage(3);dragSheet(stops[3]-12);check('short drag does not jump',sheetStage===3);
+  setSheetStage(4);dragSheet(stops[4]-12);check('short drag does not jump',sheetStage===4);
+  dragSheet(stops[3]+10);check('drag selects new fourth stop',sheetStage===3);
   dragSheet(stops[2]+10);check('drag snaps to nearest second stop',sheetStage===2);
   dragSheet(stops[1]-10);check('drag snaps to nearest third stop',sheetStage===1);
   dragSheet(stops[0]-200);check('drag clamps at top',sheetStage===0);
-  dragSheet(stops[3]+200);check('drag clamps at bottom',sheetStage===3);
-  dragSheet(stops[0],true);check('cancel keeps selected stop',sheetStage===3&&!phone.classList.contains('dragging'));
+  dragSheet(stops[4]+200);check('drag clamps at bottom',sheetStage===4);
+  dragSheet(stops[0],true);check('cancel keeps selected stop',sheetStage===4&&!phone.classList.contains('dragging'));
   setSheetStage(1);showLibrary();openNote({...notes[0],id:'check',assets:{}});check('sheet stop restored per note',sheetStage===1);
   grip.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown'}));check('sheet keyboard step',sheetStage===2);
   grip.dispatchEvent(new KeyboardEvent('keydown',{key:'Home'}));check('sheet keyboard top boundary',sheetStage===0);
+  grip.dispatchEvent(new MouseEvent('click',{detail:0}));check('tap wraps from top to fifth stop',sheetStage===4);
+  grip.dispatchEvent(new KeyboardEvent('keydown',{key:'End'}));check('sheet keyboard bottom boundary',sheetStage===4);
   grip.style.transition='';
   openNote({id:'sheet-scroll',kind:'learn',name:'スクロール確認',sample:true});setSheetStage(0);
   await new Promise(r=>setTimeout(r,270));
