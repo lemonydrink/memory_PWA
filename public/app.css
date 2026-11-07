@@ -131,3 +131,15 @@ article h2{font-size:15px;margin-bottom:5px}
 .diagram-measure{position:fixed;left:-10000px;top:0;width:640px;pointer-events:none}
 
 .library-button.danger{background:#fff;color:#a91f31;border:1px solid #a91f31;margin-right:auto}
+
+.folder-picker{margin:8px 0;padding:12px;border:1px solid var(--line);border-radius:12px;min-width:0;background:#fff}
+.folder-picker legend{padding:0 5px;font-size:13px;font-weight:750}
+.folder-picker-current{font-size:14px;font-weight:700;margin:0;overflow-wrap:anywhere}
+.folder-picker .library-path{margin:6px 0 10px}
+.folder-picker-list{max-height:230px;overflow:auto;border-top:1px solid var(--line);margin-bottom:10px}
+.folder-picker-row{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:10px 4px;text-align:left;border:0;border-bottom:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;font-size:14px}
+.folder-picker-row>span:first-child{flex:1;overflow-wrap:anywhere}.folder-picker-row small{flex-shrink:0;color:var(--muted);font-size:11px}
+.folder-picker-row.parent{color:#8d2939;font-size:12px}
+.folder-picker-create{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.folder-picker-create input{width:100%;min-width:0;padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit}
+.folder-picker:disabled{opacity:.6}.folder-picker button:disabled{cursor:wait}
+.library-editor-actions{flex-wrap:wrap}

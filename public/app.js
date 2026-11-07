@@ -187,7 +187,7 @@ new ResizeObserver(()=>{
 }).observe(phone);
 
 function menu(open) {
-  if (open && (window.redsheetSyncBusy || deletingNote)) return;
+  if (open && (window.redsheetSyncBusy || deletingNote || pendingImport)) return;
   phone.classList.toggle('menu-open', open);
   drawer.inert = !open;
   reading.inert = header.inert = grip.inert = test.inert = library.inert = open;
@@ -358,6 +358,54 @@ function folderPath(id) {
        folder = catalog.folders.find(item => item.id === folder.parent)) path.unshift(folder);
   return path;
 }
+// A local picker instance owns its DOM; discarded editors leave no global listeners.
+function folderPicker(initial, onChange=()=>{}) {
+  let selected=initial, locked=false, creating=false;
+  const element=node('fieldset','folder-picker');
+  const legend=node('legend','','保存先のフォルダ');
+  const path=node('nav','library-path');path.setAttribute('aria-label','保存先の階層');
+  const current=node('p','folder-picker-current');current.setAttribute('aria-live','polite');
+  const list=node('div','folder-picker-list');
+  const add=button('＋ この中にフォルダを作る','library-button secondary',()=>{entry.hidden=false;name.focus();});
+  const entry=node('div','folder-picker-create');entry.hidden=true;
+  const name=node('input');name.type='text';name.maxLength=100;name.placeholder='新しいフォルダ名';name.setAttribute('aria-label','新しいフォルダ名');
+  const message=node('p','library-status');message.setAttribute('role','status');
+  const cancel=button('キャンセル','library-button secondary',()=>{entry.hidden=true;name.value='';message.textContent='';});
+  const create=button('作成','library-button',async()=>{
+    const value=name.value.trim();if(!value){name.focus();return;}
+    if(locked||creating||pendingImport||window.redsheetSyncBusy)return;
+    if(catalog.folders.some(f=>f.parent===selected&&f.name===value)){message.textContent='同じ名前のフォルダがこの場所にあります。';return;}
+    creating=true;element.disabled=true;
+    try{
+      const folder={id:uniqueId(),parent:selected,name:value};catalog.folders.push(folder);
+      selected=folder.id;name.value='';entry.hidden=true;refresh();onChange(selected);
+      await saveLibrary();message.textContent='作成したフォルダを保存先に選びました。';
+    }finally{creating=false;element.disabled=locked;}
+  });
+  name.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();create.click();}});
+  entry.append(name,create,cancel);element.append(legend,current,path,list,add,entry,message);
+  function select(id){if(locked||creating)return;selected=id;entry.hidden=true;message.textContent='';refresh();onChange(selected);}
+  function refresh(){
+    if(selected&&!catalog.folders.some(f=>f.id===selected))selected='';
+    const locations=[{id:'',name:'ホーム'},...folderPath(selected)];
+    current.textContent='保存先：'+locations.map(f=>f.name).join(' › ');
+    path.replaceChildren();list.replaceChildren();
+    locations.forEach((folder,index)=>{
+      if(index)path.append(node('span','','›'));
+      const crumb=index===locations.length-1?node('span','',folder.name):button(folder.name,'',()=>select(folder.id));
+      if(index===locations.length-1)crumb.setAttribute('aria-current','page');path.append(crumb);
+    });
+    if(selected){const parent=catalog.folders.find(f=>f.id===selected).parent;list.append(button('↑ 一つ上のフォルダ','folder-picker-row parent',()=>select(parent)));}
+    const children=catalog.folders.filter(f=>f.parent===selected);
+    for(const folder of children){
+      const row=button('','folder-picker-row',()=>select(folder.id));row.dataset.folderId=folder.id;
+      row.append(node('span','',folder.name),node('small','',catalog.notes.filter(n=>n.folder===folder.id).length+'件のノート'),node('span','','›'));list.append(row);
+    }
+    if(!children.length)list.append(node('p','library-empty','この中に子フォルダはありません。この場所に保存できます。'));
+  }
+  refresh();
+  return {element,get value(){return selected;},set disabled(value){locked=value;element.disabled=locked||creating;},select,refresh};
+}
 function renderLibrary() {
   const path = $('libraryPath'), list = $('libraryList');
   path.replaceChildren();
@@ -492,19 +540,8 @@ function editLibraryItem(note) {
   nameInput.maxLength = 100;
   nameInput.value = note?.name || '';
   form.append(title,nameLabel,nameInput);
-  const destination = node('select');
-  if (note) {
-    const label = node('label','','保存先');
-    label.htmlFor = 'editDestination';
-    destination.id = 'editDestination';
-    for (const folder of [{id:''}, ...catalog.folders]) {
-      const option = node('option','',folder.id ? folderPath(folder.id).map(item => item.name).join(' › ') : 'すべて');
-      option.value = folder.id;
-      destination.append(option);
-    }
-    destination.value = note.folder;
-    form.append(label,destination);
-  }
+  const destination = note ? folderPicker(note.folder) : null;
+  if(destination)form.append(destination.element);
   const actions = node('div','library-editor-actions');
   const cancel = button('キャンセル','library-button secondary',() => editor.replaceChildren());
   const submit = node('button','library-button','保存');
@@ -691,24 +728,24 @@ async function readLesson(file) {
   }
   return notes;
 }
+function setImportStatus(message){statusLine.textContent=message;const upload=$('uploadImportStatus');if(upload)upload.textContent=message;}
 noteFile.addEventListener('change', async () => {
   const file = noteFile.files[0];
   noteFile.value = '';
   if (!file || pendingImport) return;
-  const destination = folderId;
-  pendingImport = true;
-  statusLine.textContent = '教材を読み込んでいます…';
+  const destination = window.redsheetUploadDestination?.() ?? folderId;
+  pendingImport = true;window.redsheetImportState?.(true);
+  setImportStatus('教材を読み込んでいます…');
   try {
     const notes = await readLesson(file);
     for (const note of notes) catalog.notes.push({...note,id:uniqueId(),folder:destination});
-    statusLine.textContent = notes.length + '件のノートを「' + (folderPath(destination).at(-1)?.name ?? 'すべて') + '」に読み込みました。';
-    renderLibrary();
     await saveLibrary();
-    showLibrary();
+    openFolder(destination);showLibrary();
+    setImportStatus(notes.length+'件のノートを「'+['ホーム',...folderPath(destination).map(f=>f.name)].join(' › ')+'」に読み込みました。');
   } catch (error) {
-    statusLine.textContent = '読み込めませんでした（' + (error instanceof Error ? error.message : 'ファイルを確認してください。') + '）';
+    setImportStatus('読み込めませんでした（' + (error instanceof Error ? error.message : 'ファイルを確認してください。') + '）');
   } finally {
-    pendingImport = false;
+    pendingImport = false;window.redsheetImportState?.(false);
   }
 });
 
