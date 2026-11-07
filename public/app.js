@@ -187,7 +187,7 @@ new ResizeObserver(()=>{
 }).observe(phone);
 
 function menu(open) {
-  if (open && window.redsheetSyncBusy) return;
+  if (open && (window.redsheetSyncBusy || deletingNote)) return;
   phone.classList.toggle('menu-open', open);
   drawer.inert = !open;
   reading.inert = header.inert = grip.inert = test.inert = library.inert = open;
@@ -243,7 +243,7 @@ const initialLibrary = {
 let catalog = initialLibrary, folderId = 'cells', activeNote = null, imageURLs = new Map();
 const noteStates = new Map();
 const editor = $('libraryEditor'), statusLine = $('libraryStatus');
-let pendingImport = false, libraryRevision = 0;
+let pendingImport = false, libraryRevision = 0, deletingNote = false;
 
 function node(tag, className, text) {
   const item = document.createElement(tag);
@@ -455,6 +455,28 @@ function openNote(note) {
 function uniqueId() {
   return crypto.randomUUID?.() || (Date.now().toString(36) + Math.random().toString(36).slice(2));
 }
+async function deleteNote(note) {
+  if(deletingNote || pendingImport || window.redsheetSyncBusy){statusLine.textContent='処理が終わってから削除してください。';return;}
+  if(!catalog.notes.some(item=>item.id===note.id))return;
+  if(!confirm(`「${note.name}」を削除しますか？\nこの端末からノートと付属画像を削除します。必要なら先にバックアップを保存してください。\nクラウドへの反映は「クラウドと同期」で行います。`))return;
+  deletingNote=true;library.inert=true;menuButton.disabled=true;libraryRevision++;
+  let deleted=false;
+  try{
+    const db=await storage;if(!db)throw new Error('保存領域を開けません。');
+    const next={...catalog,notes:catalog.notes.filter(item=>item.id!==note.id)};
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction('data','readwrite');
+      tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error||new Error('保存に失敗しました。'));
+      tx.objectStore('data').put(next,'library:'+window.redsheetUser.sub);
+    });
+    if(activeNote?.id===note.id)leaveNote();
+    catalog=next;noteStates.delete(note.id);editor.replaceChildren();renderLibrary();
+    statusLine.textContent='「'+note.name+'」を削除しました。クラウドへ反映するには同期してください。';
+    window.dispatchEvent(new Event('redsheet-library-change'));
+    deleted=true;
+  }catch{statusLine.textContent='削除を保存できませんでした。ノートは保持しています。';}
+  finally{deletingNote=false;library.inert=false;menuButton.disabled=false;if(deleted)$('libraryTitle').focus({preventScroll:true});}
+}
 function editLibraryItem(note) {
   const form = node('form','library-editor');
   const title = node('h2','',note ? 'ノートの整理' : 'フォルダを作る');
@@ -483,6 +505,7 @@ function editLibraryItem(note) {
   const cancel = button('キャンセル','library-button secondary',() => editor.replaceChildren());
   const submit = node('button','library-button','保存');
   submit.type = 'submit';
+  if(note){const remove=button('ノートを削除','library-button danger',()=>deleteNote(note));remove.setAttribute('aria-label','「'+note.name+'」を削除');actions.append(remove);}
   actions.append(cancel,submit);
   form.append(actions);
   form.addEventListener('submit', event => {

@@ -140,6 +140,27 @@
   await saveLibrary();
   const saved = await new Promise(resolve => {const r = db.transaction('data').objectStore('data').get('library:' + window.redsheetUser.sub);r.onsuccess=()=>resolve(r.result);});
   check('persisted library', saved.notes.length >= 2);
+  const deleteFixture={id:'delete-check',folder:folderId,kind:'learn',name:'削除確認',body:'**答え**',assets:{'delete.png':new Blob(['image'],{type:'image/png'})}};
+  catalog.notes.push(deleteFixture);noteStates.set(deleteFixture.id,{scroll:42});await saveLibrary();
+  const retainedIds=catalog.notes.filter(n=>n.id!==deleteFixture.id).map(n=>n.id).join(',');
+  const retainedFolders=JSON.stringify(catalog.folders);
+  editLibraryItem(deleteFixture);
+  check('note editor delete button',editor.querySelector('.danger')?.type==='button');
+  const deletionConfirm=window.confirm;
+  let deletePrompt='';window.confirm=message=>{deletePrompt=message;return false;};
+  await deleteNote(deleteFixture);
+  check('cancel deletion preserves note',catalog.notes.includes(deleteFixture)&&noteStates.has(deleteFixture.id)&&deletePrompt.includes(deleteFixture.name));
+  window.confirm=()=>true;
+  const transactionBeforeDelete=db.transaction;
+  db.transaction=()=>{throw new Error('simulated storage failure');};
+  try{await deleteNote(deleteFixture);}finally{db.transaction=transactionBeforeDelete;}
+  check('failed deletion preserves note',catalog.notes.includes(deleteFixture)&&noteStates.has(deleteFixture.id)&&!library.inert&&!menuButton.disabled);
+  await deleteNote(deleteFixture);window.confirm=deletionConfirm;
+  const afterDelete=await new Promise(resolve=>{const r=db.transaction('data').objectStore('data').get('library:'+window.redsheetUser.sub);r.onsuccess=()=>resolve(r.result);});
+  check('deletion persists without attached assets',!afterDelete.notes.some(n=>n.id===deleteFixture.id)&&!noteStates.has(deleteFixture.id));
+  check('deletion preserves other notes and folders',catalog.notes.map(n=>n.id).join(',')===retainedIds&&JSON.stringify(catalog.folders)===retainedFolders);
+  check('deletion restores accessible library',!library.inert&&!menuButton.disabled&&document.activeElement===document.getElementById('libraryTitle'));
+
   check('account identity UI', [...document.querySelectorAll('#library button')].some(b=>b.textContent==='ログアウト'));
   const other = await new Promise(resolve => {const r = db.transaction('data').objectStore('data').get('library:other-account');r.onsuccess=()=>resolve(r.result);});
   check('account storage separated', !other);
