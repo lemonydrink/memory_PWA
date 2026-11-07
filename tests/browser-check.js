@@ -3,7 +3,8 @@
  function check(name, condition) { if (!condition) throw new Error(name); results.push(name); }
  try {
   for(let i=0;i<300&&(!window.redsheetRich||!document.getElementById('accountStatus')||document.body.classList.contains('auth-locked'));i++)await new Promise(r=>setTimeout(r,50));
-  check('library rendered', document.querySelectorAll('.library-row').length >= 2);
+  check('library rendered', document.querySelectorAll('.library-row').length >= 1);
+  check('startup opens home folder',phone.dataset.mode==='library'&&folderId===''&&activeNote===null&&document.getElementById('libraryPath').textContent==='ホーム');
   const notes = parseLesson('# 確認\n\n## 学習\n\n**細胞**です。\n\n## テスト\n\n### 基本単位は？\n\n細胞');
   check('markdown import', notes.length === 2);
   openNote({...notes[0],id:'check',assets:{}});
@@ -225,7 +226,7 @@
   await fetch('/simulate-offline');
   const frame=document.createElement('iframe');frame.src='/';document.body.append(frame);
   for(let i=0;i<200;i++){await new Promise(r=>setTimeout(r,50));if(frame.contentWindow?.redsheetUser?.offline&&!frame.contentDocument.body.classList.contains('auth-locked'))break;}
-  check('cold start offline learning',frame.contentWindow.redsheetUser?.offline&&!frame.contentDocument.body.classList.contains('auth-locked')&&frame.contentDocument.querySelectorAll('.library-row').length>=2);
+  check('cold start offline learning',frame.contentWindow.redsheetUser?.offline&&!frame.contentDocument.body.classList.contains('auth-locked')&&frame.contentDocument.querySelectorAll('.library-row').length>=1&&frame.contentDocument.getElementById('libraryPath').textContent==='ホーム');
   const offlineRich=frame.contentDocument.createElement('div');frame.contentDocument.body.append(offlineRich);
   frame.contentWindow.redsheetRich.math(offlineRich,'\\frac{1}{2}',false,true);
   check('TeX renders with network disabled',!!offlineRich.querySelector('.katex'));

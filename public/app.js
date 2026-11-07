@@ -240,7 +240,7 @@ const initialLibrary = {
     {id:'sample-test', folder:'cells', kind:'test', name:'細胞の確認問題', questions:sampleQuestions}
   ]
 };
-let catalog = initialLibrary, folderId = 'cells', activeNote = null, imageURLs = new Map();
+let catalog = initialLibrary, folderId = '', activeNote = null, imageURLs = new Map();
 const noteStates = new Map();
 const editor = $('libraryEditor'), statusLine = $('libraryStatus');
 let pendingImport = false, libraryRevision = 0, deletingNote = false;
@@ -362,7 +362,7 @@ function renderLibrary() {
   const path = $('libraryPath'), list = $('libraryList');
   path.replaceChildren();
   list.replaceChildren();
-  const locations = [{id:'',name:'すべて'}, ...folderPath(folderId)];
+  const locations = [{id:'',name:'ホーム'}, ...folderPath(folderId)];
   for (const [index, item] of locations.entries()) {
     if (index) path.append(node('span', '', '›'));
     const crumb = index === locations.length - 1
